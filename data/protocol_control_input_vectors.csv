@@ -1,0 +1,6 @@
+injection,z_node,mu_delta,Sigma_delta,alpha_M,dLGW_dLEM_delta,expected_gate_behavior
+lcdm_null,0.0,0.0,0.0,0.0,0.0,should remain null
+smooth_w0wa_spline,0.0,-0.01,-0.004,0.0,0.0,should be absorbed by background/spline columns
+linear_fR_proxy,0.0,0.03,0.03,0.004,0.0,should be absorbed by scalaron-like proxy column
+high_alphaM_excluded_toy,0.0,0.01,0.008,0.18,0.06,should stop under external-response/stability precheck
+ifc_branch_fixture,0.0,-0.0566,-0.0283,0.0617,0.022,candidate only; external red flag remains

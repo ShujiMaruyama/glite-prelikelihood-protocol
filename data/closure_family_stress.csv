@@ -1,0 +1,8 @@
+stress_axis,eta,closure_map,kernel,regulator,xi_min_after_TM,xi_max_after_TM,width,I_IFC_fixture,decision
+closure_map,-0.2,Q=Psi_sigma^2 + (-0.20) Psi_sigma^4,gaussian,rho_star,0.034,0.036,0.002,0.052,fragile_narrow
+closure_map,-0.1,Q=Psi_sigma^2 + (-0.10) Psi_sigma^4,gaussian,rho_star,0.033,0.038,0.005,0.061,narrow_candidate
+closure_map,0.0,Q=Psi_sigma^2 + (+0.00) Psi_sigma^4,gaussian,rho_star,0.030,0.041,0.011,0.080,baseline_candidate
+closure_map,0.1,Q=Psi_sigma^2 + (+0.10) Psi_sigma^4,gaussian,rho_star,0.031,0.039,0.008,0.067,narrow_candidate
+closure_map,0.2,Q=Psi_sigma^2 + (+0.20) Psi_sigma^4,gaussian,rho_star,0.033,0.037,0.004,0.055,fragile_narrow
+kernel_variation,0.0,Q=Psi_sigma^2 + (+0.00) Psi_sigma^4,top_hat,rho_star,0.031,0.039,0.008,0.072,kernel_sensitive_candidate
+regulator_variation,0.0,Q=Psi_sigma^2 + (+0.00) Psi_sigma^4,gaussian,2rho_star,0.032,0.038,0.006,0.064,regulator_sensitive_candidate

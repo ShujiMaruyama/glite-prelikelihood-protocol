@@ -1,0 +1,5 @@
+quantity,fixture_delta,synthetic_sigma,pull,diagnostic
+mu_F_z0,-0.0566,0.02,2.83,red_flag
+Sigma_z0,-0.0283,0.02,1.41,watch
+alpha_M_z0,0.0617,0.03,2.06,red_flag
+dLGW_dLEM_z1,0.022,0.05,0.44,not_limiting

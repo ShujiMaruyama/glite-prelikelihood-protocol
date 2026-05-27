@@ -1,0 +1,6 @@
+metric,value
+signal_seeds,30
+null_controls,30
+recovered_fixture,22
+absorbed_fixture,6
+false_positive_fixture,1

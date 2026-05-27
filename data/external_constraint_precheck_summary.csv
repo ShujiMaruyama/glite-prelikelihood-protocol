@@ -1,0 +1,5 @@
+metric,value
+chi2_ext_toy,14.434
+N_dof_toy,4
+chi2_ext_over_Ndof_toy,3.609
+status,constraint_readiness_red_flag_not_observational_constraint

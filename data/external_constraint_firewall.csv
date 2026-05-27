@@ -1,0 +1,6 @@
+channel,tier1_status,required_upgrade,claim_boundary
+mu_and_Sigma,fixture response only,requires matched growth/lensing likelihood,not viable until compared
+alphaM_and_GW_distance,response target only,requires consistent tensor-friction and siren module,not a propagation constraint
+fsigma8_RSD,not self-consistent in Tier-1,requires perturbation solver plus survey windows,toy D(a) should not be used in likelihood
+CMB_lensing_ISW,not computed,requires CLASS/CAMB/hi_class/EFTCAMB spectra,no CMB viability claim
+local_gravity,pre-PPN toy BVP only,requires nonlinear local profile and metric audit,not a Cassini pass

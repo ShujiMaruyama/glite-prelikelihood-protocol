@@ -1,0 +1,7 @@
+block,input,minimum_output,handoff_condition,still_excluded
+background,declared H(a) or solver,"D(a), f(a), distances",finite nodes; no NaN/sign-flip instability,full CMB likelihood
+linear_response,"F(q), closure variance","mu(a,k), Sigma(a,k), alpha_M",finite response and epsilon_cl inside budget,nonlinear LSS
+GW_propagation,alpha_M(a),dL_GW/dL_EM,same alpha_M nodes,siren posterior
+template_projection,"response vector, X, C_floor","I_IFC, S_seed2/Eth2",I_IFC>I_star and S_seed2/Eth2>1,evidence
+local_handoff,transfer/BVP gates,"Delta_TM_match, B_TM, S_loc",Delta_TM_match<epsilon_match; |B_TM|<epsilon_B; S_loc<S_loc_max,Solar-System viability claim
+artifact,"scripts, CSV, figures, manifest",hash check,manifest pass from clean checkout,public DOI unless uploaded

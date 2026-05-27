@@ -1,0 +1,6 @@
+injection,expected_behavior,absorbed_or_stopped_direction,fixture_outcome,I_IFC,S_seed2_over_Eth2,decision
+lcdm_null,no nonabsorbed IFC residue,none_null_channel,null_retained_no_promotion,0.004,0.0,PASS_CONTROL
+smooth_w0wa_spline,absorbed by smooth template directions,w0wa_spline_columns,absorbed_by_smooth_basis,0.012,0.0,PASS_CONTROL
+linear_fR_proxy,absorbed by fR competitor column,scalaron_like_proxy_column,absorbed_by_fR_proxy,0.018,0.0,PASS_CONTROL
+high_alphaM_excluded_toy,fails external-response or stability precheck,external_or_stability_stop,stopped_before_promotion,0.02,0.0,STOP_CONTROL
+ifc_branch_fixture,survives projection but remains externally unvalidated,residual_IFC_direction,candidate_only,0.08,1.35,CANDIDATE_ONLY

@@ -1,0 +1,8 @@
+symbol,declared_value,role,rationale
+epsilon_match,0.10,transfer-matrix amplitude gate,loose Tier-1 tolerance; swept
+epsilon_B,1e-3,derivative-tail gate,rejects exterior Robin mismatch
+I_star,0.05,template-absorption gate,minimal nonabsorbed fraction
+S_seed2_over_Eth2,>1,seed above theory floor,pre-likelihood only
+R_N_star_over_Nz,<1,null-reconstruction residual,branch-consistency scale
+epsilon_cl,0.05--0.20,closure residual budget,higher-operator modeling sweep
+S_loc_max,8.3e-3,solar-proxy reference gate,pre-PPN surrogate only; not Cassini pass

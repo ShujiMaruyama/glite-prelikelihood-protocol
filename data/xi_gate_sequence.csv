@@ -1,0 +1,7 @@
+gate,xi_min,xi_max,width
+O_xi_detectability,0.01,0.08,0.07
+closure,0.014,0.07,0.056
+absorption,0.02,0.061,0.041
+transfer,0.024,0.052,0.028
+BVP_surrogate,0.027,0.046,0.019
+stability_sweep,0.03,0.041,0.011

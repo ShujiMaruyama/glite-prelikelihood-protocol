@@ -1,0 +1,5 @@
+quantity,node,response_component,synthetic_sigma,correlation_assumption,scope
+mu_F_z0,z=0,delta_mu,0.02,diagonal,synthetic width; not Planck/DESI/BOSS
+Sigma_z0,z=0,delta_Sigma,0.02,diagonal,synthetic width; not lensing likelihood
+alpha_M_z0,z=0,alpha_M,0.03,diagonal,synthetic width; not GW/siren constraint
+dLGW_dLEM_z1,z=1,dL_ratio,0.05,diagonal,synthetic width; not standard-siren posterior

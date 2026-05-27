@@ -1,0 +1,48 @@
+{
+  "status": "open-source SoftwareX-ready fixture package; V152 prior archive DOI 10.5281/zenodo.20390399",
+  "claim_boundary": [
+    "no observational detection",
+    "no posterior constraint",
+    "no Bayes factor or evidence claim",
+    "no Solar-System viability claim",
+    "pass-surrogate is pre-PPN surrogate only"
+  ],
+  "branch": {
+    "coordinate": "Psi_sigma = -log[(rho_sigma + rho_star)/(rho_bar + rho_star)]",
+    "F_of_q": "M_Pl^2 (1 + 2 xi q^2)",
+    "tensor_sector": "G4(q)=F(q)/2, G4X=0, G5=0, c_T=1"
+  },
+  "minimal_output_vector": [
+    "H(a)",
+    "D(a)",
+    "f(a)",
+    "mu(a,k)",
+    "Sigma(a,k)",
+    "alpha_M(a)",
+    "dL_GW/dL_EM",
+    "t_perp",
+    "I_IFC",
+    "S_seed",
+    "R_N"
+  ],
+  "tier1_thresholds": {
+    "epsilon_match": 0.1,
+    "epsilon_B": 0.001,
+    "I_star": 0.05,
+    "S_seed2_over_Eth2_min": 1.0,
+    "R_N_star_over_Nz_max": 1.0,
+    "epsilon_cl_range": [
+      0.05,
+      0.2
+    ],
+    "S_loc_max": 0.0083
+  },
+  "tier1_gates": {
+    "closure": "delta_cl < epsilon_cl and epsilon_EFT < epsilon_EFT_star",
+    "projection": "I_IFC > I_star and S_seed^2/E_th^2 > 1",
+    "local_matching": "Delta_TM_match < epsilon_match and |B_TM| < epsilon_B",
+    "solar_surrogate": "alpha_eff_loc = 3 alpha_cos DeltaR/R; S_loc = |gamma-1|_proxy = 2 alpha_eff_loc^2/(1 + alpha_eff_loc^2) < S_loc_max; pre-PPN surrogate only; not Cassini pass",
+    "threshold_stability": "no pass/fail flip under declared sweeps"
+  },
+  "handoff_condition": "Tier-2 permission only; production likelihood still outside scope"
+}

@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the archived V152 package and the forthcoming SoftwareX article."
+title: "Glite: A reproducible pre-likelihood viability protocol for scalar-tensor modified-gravity branches"
+version: "v1.0.0-softx"
+date-released: "2026-05-26"
+authors:
+  - family-names: "Maruyama"
+    given-names: "Shuji"
+    orcid: "https://orcid.org/0009-0007-5034-7634"
+repository-artifact: "https://doi.org/10.5281/zenodo.20390399"
+license: "MIT"
+keywords:
+  - scalar-tensor gravity
+  - modified gravity
+  - pre-likelihood protocol
+  - reproducibility
+  - Horndeski
+  - gravitational-wave propagation
+  - logarithmic density coordinate
