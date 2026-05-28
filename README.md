@@ -1,5 +1,13 @@
 # Glite pre-likelihood protocol
 
+[![DOI](https://zenodo.org/badge/1250763079.svg)](https://doi.org/10.5281/zenodo.20404263)
+
+## Archived release
+
+- Zenodo archived release: https://doi.org/10.5281/zenodo.20404264
+- Concept DOI for all versions: https://doi.org/10.5281/zenodo.20404263
+- Related V152 reproducibility archive: https://doi.org/10.5281/zenodo.20390399
+
 Glite is a reproducible, low-resource pre-likelihood triage scaffold for scalar-tensor modified-gravity branches. It generates deterministic fixture data, figures, control vectors, threshold sweeps, and a SHA-256 manifest for an illustrative logarithmic-density scalar-tensor branch.
 
 This repository is prepared for a SoftwareX original software publication as `v1.0.0-softx`. It is derived from the earlier all-rights-reserved V152 Zenodo reproducibility archive:
