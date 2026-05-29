@@ -4,7 +4,7 @@
 
 ## Archived release
 
-- Zenodo archived release: https://doi.org/10.5281/zenodo.20404264
+- Zenodo archived release: https://doi.org/10.5281/zenodo.20436819
 - Concept DOI for all versions: https://doi.org/10.5281/zenodo.20404263
 - Related V152 reproducibility archive: https://doi.org/10.5281/zenodo.20390399
 
