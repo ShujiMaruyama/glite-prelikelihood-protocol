@@ -71,14 +71,19 @@ The main generated artifacts are:
 - `figures/fig_xi_gate_sequence.{pdf,png}`
 - `figures/fig_failure_decision_flow.{pdf,png}`
 
+
+
 ## Citation
 
-Please cite the V152 reproducibility archive and, once available, the SoftwareX publication:
+Please cite the archived Glite release:
 
-```text
-Maruyama, S. (2026). Pre-Likelihood Viability Protocol for a Logarithmic-Density Scalar-Tensor Branch - V152 Reproducibility Package (Version V152). Zenodo. https://doi.org/10.5281/zenodo.20390399
-```
+Maruyama, S. (2026). *Glite: A reproducible pre-likelihood viability protocol for scalar-tensor modified-gravity branches* (v1.0.2-softx). Zenodo. https://doi.org/10.5281/zenodo.20436819
 
+Concept DOI for all versions: https://doi.org/10.5281/zenodo.20404263
+
+Related prior archive:
+
+Maruyama, S. (2026). *Pre-Likelihood Viability Protocol for a Logarithmic-Density Scalar-Tensor Branch — V152 Reproducibility Package*. Zenodo. https://doi.org/10.5281/zenodo.20390399
 ## License
 
 - Python source code: MIT License.
