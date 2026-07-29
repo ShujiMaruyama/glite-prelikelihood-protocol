@@ -33,22 +33,22 @@ jobs:
           PYTHON=python3 make -j2
           git rev-parse HEAD > ../CLASS_UPSTREAM_COMMIT.txt
           sha256sum ../rims_class_v3.3.4_v7.patch > ../PATCH_SHA256.txt
-      - name: Install DESI DR2 BAO and Pantheon+ likelihood data
+      - name: Install Planck 2018, DESI DR2 BAO and Pantheon+ likelihood data
         run: |
           mkdir -p cobaya_packages
-          cobaya-install bao.desi_dr2 sn.pantheonplus -p "$PWD/cobaya_packages"
-      - name: Execute decoupled-scalar best-fit pilot
+          cobaya-install planck_2018_lowl.TT planck_2018_lowl.EE planck_2018_highl_plik.TTTEEE_lite_native planck_2018_lensing.native bao.desi_dr2 sn.pantheonplus -p "$PWD/cobaya_packages"
+      - name: Execute Planck plus BAO plus SN point gate
         shell: bash
         run: |
           set -o pipefail
-          python rims_realdata_scalaronly_optimize.py 2>&1 | tee SCALARONLY_OPTIMIZE.log
+          python rims_planck_point_gate.py 2>&1 | tee PLANCK_POINT_GATE.log
       - name: Package artifact
         if: always()
         run: |
           mkdir -p artifact
-          cp CLASS_UPSTREAM_COMMIT.txt PATCH_SHA256.txt SCALARONLY_OPTIMIZE.log artifact/ 2>/dev/null || true
-          cp -r scalaronly_results/* artifact/ 2>/dev/null || true
-          cp rims_realdata_scalaronly_optimize.py artifact/ || true
+          cp CLASS_UPSTREAM_COMMIT.txt PATCH_SHA256.txt PLANCK_POINT_GATE.log artifact/ 2>/dev/null || true
+          cp -r planck_gate_results/* artifact/ 2>/dev/null || true
+          cp rims_planck_point_gate.py artifact/ || true
           python - <<'PY'
           import json, subprocess, pathlib
           pathlib.Path('artifact/ENVIRONMENT.json').write_text(json.dumps({'python':subprocess.getoutput('python --version'),'pip_freeze':subprocess.getoutput('pip freeze')},indent=2))
@@ -57,6 +57,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: rims-scalaronly-bestfit-results
+          name: rims-planck-point-gate-results
           path: artifact
           retention-days: 7
