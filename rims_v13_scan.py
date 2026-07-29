@@ -75,7 +75,7 @@ def run_one(lam, omega, phi_ref, label, require_norm=False, norm_tol=1e-8):
     cp = subprocess.run([str(CLASS), str(ini)], cwd=ROOT/'class_public', text=True, capture_output=True)
     (d/'stdout.txt').write_text(cp.stdout)
     (d/'stderr.txt').write_text(cp.stderr)
-    bg = d/'run_background.dat'
+    bg = d/'run__background.dat'
     if cp.returncode != 0 or not bg.exists():
         return {'success': False, 'returncode': cp.returncode, 'label': label,
                 'lambda': lam, 'Omega_scf': omega,
@@ -136,7 +136,7 @@ for name,seed in chosen.items():
         label=f'validated_{name}_l{tag(lam)}_o{tag(omega)}'
         validated=run_one(lam,omega,phi_ref,label,True,1e-8)
         if validated.get('success'):
-            shutil.copy2(WORK/label/'run_background.dat',OUT/f'{name}_background.dat')
+            shutil.copy2(WORK/label/'run__background.dat',OUT/f'{name}_background.dat')
             shutil.copy2(WORK/label/'run.ini',OUT/f'{name}.ini')
     normalized.append({'regime_target':name,'target_Xi_z1':targets[name],
                        'coarse_seed':seed,'iteration_history':history,
