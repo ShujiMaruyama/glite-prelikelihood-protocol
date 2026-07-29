@@ -4,7 +4,7 @@ import numpy as np
 
 ROOT=Path.cwd(); CLASS=ROOT/'class_public'/'class'; WORK=ROOT/'scan_work'; OUT=ROOT/'scan_results'
 WORK.mkdir(exist_ok=True); OUT.mkdir(exist_ok=True)
-omegas=[0.30,0.40,0.50,0.60,0.64,0.66,0.67,0.68]
+omegas=[0.680,0.685,0.688,0.689,0.690]
 ztargets=[0.,0.5,1.,2.,3.]
 
 def tag(x): return f'{x:.6g}'.replace('-','m').replace('.','p').replace('+','')
@@ -69,39 +69,46 @@ def run_one(omega,phi_ref,label,require_norm=False):
         return {'success':False,'Omega_scf':omega,'label':label,'returncode':cp.returncode,
                 'stdout_tail':cp.stdout[-2000:],'stderr_tail':cp.stderr[-2000:]}
     a=np.loadtxt(bg); z=a[:,0]; H=a[:,3]; phi=a[:,18]; V=a[:,20]; Vpp=a[:,22]; s=a[:,23]
-    mratio=a[:,26]; meff2=a[:,28]; stab=a[:,29]
+    mratio=a[:,26]; meff2=a[:,28]; stab=a[:,29]; rho_lambda=a[:,12]; rho_tot=a[:,31]
     mask=(z>=0)&(z<=3); xi=np.sqrt(np.maximum(meff2[mask],0))/H[mask]
     rec={'success':True,'Omega_scf':omega,'phi_ref':phi_ref,'phi_today':float(phi[-1]),
          'mratio_today':float(mratio[-1]),'s_today':float(s[-1]),'min_stab_all':float(stab.min()),
+         'Omega_lambda_today':float(rho_lambda[-1]/rho_tot[-1]),
          'Xi_min_z0_3':float(xi.min()),'Xi_max_z0_3':float(xi.max()),'label':label}
     for zz in ztargets:
         i=int(np.argmin(np.abs(z-zz))); rec[f'Xi_z{zz:g}']=float(math.sqrt(max(meff2[i],0))/H[i]); rec[f's_z{zz:g}']=float(s[i])
         rec[f'lambda_eff_z{zz:g}']=float(math.sqrt(max(Vpp[i]/V[i],0))) if V[i]>0 else float('nan')
+        rec[f'Vpp_over_H2_z{zz:g}']=float(Vpp[i]/H[i]**2)
+        rec[f'mattercorr_over_H2_z{zz:g}']=float((meff2[i]-Vpp[i])/H[i]**2)
     return rec
 
 rows=[]; initial_ref=4.343497008603
 for omega in omegas:
-    phi_ref=initial_ref; hist=[]; final=None
+    phi_ref=initial_ref; final=None
     for it in range(16):
-        rec=run_one(omega,phi_ref,f'edge_o{tag(omega)}_it{it}',False); hist.append(rec)
+        rec=run_one(omega,phi_ref,f'closure_o{tag(omega)}_it{it}',False)
         if not rec.get('success'): break
         final=rec
         if abs(rec['mratio_today']-1)<2e-9: break
         phi_ref=rec['phi_today']
     validated=None
     if final and abs(final['mratio_today']-1)<1e-8:
-        label=f'validated_edge_o{tag(omega)}'; validated=run_one(omega,phi_ref,label,True)
+        label=f'validated_closure_o{tag(omega)}'; validated=run_one(omega,phi_ref,label,True)
         if validated.get('success'):
-            shutil.copy2(WORK/label/'run__background.dat',OUT/f'edge_o{tag(omega)}_background.dat')
-            shutil.copy2(WORK/label/'run.ini',OUT/f'edge_o{tag(omega)}.ini')
+            shutil.copy2(WORK/label/'run__background.dat',OUT/f'closure_o{tag(omega)}_background.dat')
+            shutil.copy2(WORK/label/'run.ini',OUT/f'closure_o{tag(omega)}.ini')
             rows.append(validated)
-    print('EDGE',omega,'valid',bool(validated and validated.get('success')),'Xi1',None if not validated else validated.get('Xi_z1'),flush=True)
+    print('CLOSURE',omega,'valid',bool(validated and validated.get('success')),'Xi1',None if not validated else validated.get('Xi_z1'),'OmegaL',None if not validated else validated.get('Omega_lambda_today'),flush=True)
 
-keys=['success','Omega_scf','phi_ref','phi_today','mratio_today','s_today','min_stab_all','Xi_min_z0_3','Xi_max_z0_3',
-      'Xi_z0','Xi_z0.5','Xi_z1','Xi_z2','Xi_z3','lambda_eff_z0','lambda_eff_z0.5','lambda_eff_z1','lambda_eff_z2','lambda_eff_z3','label']
-with open(OUT/'validated_edge_scan.csv','w',newline='') as f:
+keys=['success','Omega_scf','Omega_lambda_today','phi_ref','phi_today','mratio_today','s_today','min_stab_all','Xi_min_z0_3','Xi_max_z0_3',
+      'Xi_z0','Xi_z0.5','Xi_z1','Xi_z2','Xi_z3','lambda_eff_z0','lambda_eff_z0.5','lambda_eff_z1','lambda_eff_z2','lambda_eff_z3',
+      'Vpp_over_H2_z0','Vpp_over_H2_z0.5','Vpp_over_H2_z1','Vpp_over_H2_z2','Vpp_over_H2_z3',
+      'mattercorr_over_H2_z0','mattercorr_over_H2_z0.5','mattercorr_over_H2_z1','mattercorr_over_H2_z2','mattercorr_over_H2_z3','label']
+with open(OUT/'validated_closure_edge.csv','w',newline='') as f:
     w=csv.DictWriter(f,fieldnames=keys,extrasaction='ignore'); w.writeheader(); [w.writerow(r) for r in rows]
-summary={'validated_edge':rows,'max_Xi_z1':max([r['Xi_z1'] for r in rows],default=None),
-         'max_Xi_any_z0_3':max([r['Xi_max_z0_3'] for r in rows],default=None)}
-(OUT/'edge_scan_summary.json').write_text(json.dumps(summary,indent=2))
+summary={'validated_closure_edge':rows,'max_Xi_z1':max([r['Xi_z1'] for r in rows],default=None),
+         'max_Xi_any_z0_3':max([r['Xi_max_z0_3'] for r in rows],default=None),
+         'max_Omega_scf_validated':max([r['Omega_scf'] for r in rows],default=None),
+         'min_Omega_lambda_today':min([r['Omega_lambda_today'] for r in rows],default=None)}
+(OUT/'closure_edge_summary.json').write_text(json.dumps(summary,indent=2))
 if not rows: sys.exit(2)
