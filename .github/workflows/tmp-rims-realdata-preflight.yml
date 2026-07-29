@@ -55,13 +55,20 @@ jobs:
           set -o pipefail
           python rims_realdata_preflight.py 2>&1 | tee REALDATA_PREFLIGHT.log
 
+      - name: Execute dense low-Omega real-data profile scan
+        shell: bash
+        run: |
+          set -o pipefail
+          python rims_realdata_dense_profile.py 2>&1 | tee DENSE_REALDATA_PROFILE.log
+
       - name: Package preflight artifact
         if: always()
         run: |
           mkdir -p artifact
-          cp CLASS_UPSTREAM_COMMIT.txt PATCH_SHA256.txt REALDATA_PREFLIGHT.log artifact/ 2>/dev/null || true
+          cp CLASS_UPSTREAM_COMMIT.txt PATCH_SHA256.txt REALDATA_PREFLIGHT.log DENSE_REALDATA_PROFILE.log artifact/ 2>/dev/null || true
           cp -r realdata_results/* artifact/ 2>/dev/null || true
-          cp rims_realdata_preflight.py artifact/ || true
+          cp -r dense_profile_results/* artifact/ 2>/dev/null || true
+          cp rims_realdata_preflight.py rims_realdata_dense_profile.py artifact/ || true
           cp scan_artifact/validated_shell_scan.csv artifact/V14_VALIDATED_SHELL_SCAN_INPUT.csv || true
           python - <<'PY'
           import json, subprocess, pathlib
