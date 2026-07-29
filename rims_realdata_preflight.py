@@ -90,27 +90,31 @@ with open(CSV, newline='') as f:
             rows.append({'label': r['label'], **point, 'error': repr(e)})
             print('ERR', r['label'], repr(e), flush=True)
 
-# True standard-LambdaCDM baseline: RIMS/scalar/IDM removed and the same total
-# physical dark-matter density assigned to ordinary CDM.
+# True standard-LambdaCDM baseline. RIMS/scalar/IDM are absent and the same
+# total physical dark-matter density is assigned to ordinary CDM. Numeric
+# cosmological quantities are explicit fixed Cobaya parameters; only CLASS
+# string/configuration options remain in extra_args.
 lcdm_extra = {
-    'h': 0.67810,
-    'omega_b': 0.02238280,
-    'omega_cdm': 0.12010750,
-    'N_ur': 3.044,
-    'N_ncdm': 0,
     'YHe': 'BBN',
     'recombination': 'RECFAST',
-    'z_reio': 7.6711,
     'reio_parametrization': 'reio_camb',
-    'A_s': 2.100549e-9,
-    'n_s': 0.9660499,
     'k_pivot': 0.05,
+}
+lcdm_params = {
+    'h': {'value': 0.67810},
+    'omega_b': {'value': 0.02238280},
+    'omega_cdm': {'value': 0.12010750},
+    'N_ur': {'value': 3.044},
+    'N_ncdm': {'value': 0},
+    'z_reio': {'value': 7.6711},
+    'A_s': {'value': 2.100549e-9},
+    'n_s': {'value': 0.9660499},
 }
 lcdm_info = {
     'packages_path': str(PACKAGES),
     'theory': {'classy': {'path': str(CLASS), 'extra_args': lcdm_extra}},
     'likelihood': likelihoods,
-    'params': {},
+    'params': lcdm_params,
     'debug': False,
     'stop_at_error': True,
 }
