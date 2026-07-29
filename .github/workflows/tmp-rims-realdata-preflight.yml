@@ -12,23 +12,18 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-
-      - name: Recover pinned RIMS patch and validated V14 scan
+      - name: Recover pinned RIMS patch
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p _patch_artifact scan_artifact
+          mkdir -p _patch_artifact
           gh run download 30425050547 -n rims-v10-turnover-results -D _patch_artifact
           cp _patch_artifact/rims_class_v3.3.4_v7.patch ./rims_class_v3.3.4_v7.patch
-          gh run download 30431612374 -n rims-v14-shell-scan-results -D scan_artifact
-          test -f scan_artifact/validated_shell_scan.csv
-
-      - name: Install Cobaya and numerical dependencies
+      - name: Install Cobaya and dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install 'cobaya==3.6.2' cython scipy
-
-      - name: Checkout, patch, and build CLASS v3.3.4 with Python wrapper
+      - name: Build patched CLASS v3.3.4
         run: |
           git clone --depth 1 https://github.com/lesgourg/class_public.git class_public
           cd class_public
@@ -38,42 +33,30 @@ jobs:
           PYTHON=python3 make -j2
           git rev-parse HEAD > ../CLASS_UPSTREAM_COMMIT.txt
           sha256sum ../rims_class_v3.3.4_v7.patch > ../PATCH_SHA256.txt
-
       - name: Install DESI DR2 BAO and Pantheon+ likelihood data
         run: |
           mkdir -p cobaya_packages
           cobaya-install bao.desi_dr2 sn.pantheonplus -p "$PWD/cobaya_packages"
-
-      - name: Execute fixed-standard-parameter real-data likelihood preflight
+      - name: Execute decoupled-scalar best-fit pilot
         shell: bash
         run: |
           set -o pipefail
-          python rims_realdata_preflight.py 2>&1 | tee REALDATA_PREFLIGHT.log
-
-      - name: Execute free-standard-cosmology best-fit pilot
-        shell: bash
-        run: |
-          set -o pipefail
-          python rims_realdata_freecosmo_optimize.py 2>&1 | tee FREECOSMO_OPTIMIZE.log
-
-      - name: Package preflight artifact
+          python rims_realdata_scalaronly_optimize.py 2>&1 | tee SCALARONLY_OPTIMIZE.log
+      - name: Package artifact
         if: always()
         run: |
           mkdir -p artifact
-          cp CLASS_UPSTREAM_COMMIT.txt PATCH_SHA256.txt REALDATA_PREFLIGHT.log FREECOSMO_OPTIMIZE.log artifact/ 2>/dev/null || true
-          cp -r realdata_results/* artifact/ 2>/dev/null || true
-          cp -r freecosmo_results/* artifact/ 2>/dev/null || true
-          cp rims_realdata_preflight.py rims_realdata_freecosmo_optimize.py artifact/ || true
-          cp scan_artifact/validated_shell_scan.csv artifact/V14_VALIDATED_SHELL_SCAN_INPUT.csv || true
+          cp CLASS_UPSTREAM_COMMIT.txt PATCH_SHA256.txt SCALARONLY_OPTIMIZE.log artifact/ 2>/dev/null || true
+          cp -r scalaronly_results/* artifact/ 2>/dev/null || true
+          cp rims_realdata_scalaronly_optimize.py artifact/ || true
           python - <<'PY'
           import json, subprocess, pathlib
           pathlib.Path('artifact/ENVIRONMENT.json').write_text(json.dumps({'python':subprocess.getoutput('python --version'),'pip_freeze':subprocess.getoutput('pip freeze')},indent=2))
           PY
           (cd artifact && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
-
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: rims-realdata-preflight-results
+          name: rims-scalaronly-bestfit-results
           path: artifact
           retention-days: 7
