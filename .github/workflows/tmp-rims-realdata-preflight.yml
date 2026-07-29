@@ -26,7 +26,7 @@ jobs:
       - name: Install Cobaya and numerical dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install 'cobaya==3.6.2' cython
+          python -m pip install 'cobaya==3.6.2' cython scipy
 
       - name: Checkout, patch, and build CLASS v3.3.4 with Python wrapper
         run: |
@@ -50,20 +50,20 @@ jobs:
           set -o pipefail
           python rims_realdata_preflight.py 2>&1 | tee REALDATA_PREFLIGHT.log
 
-      - name: Execute scalar-fraction extension real-data profile
+      - name: Execute free-standard-cosmology best-fit pilot
         shell: bash
         run: |
           set -o pipefail
-          python rims_realdata_extension_profile.py 2>&1 | tee EXTENSION_REALDATA_PROFILE.log
+          python rims_realdata_freecosmo_optimize.py 2>&1 | tee FREECOSMO_OPTIMIZE.log
 
       - name: Package preflight artifact
         if: always()
         run: |
           mkdir -p artifact
-          cp CLASS_UPSTREAM_COMMIT.txt PATCH_SHA256.txt REALDATA_PREFLIGHT.log EXTENSION_REALDATA_PROFILE.log artifact/ 2>/dev/null || true
+          cp CLASS_UPSTREAM_COMMIT.txt PATCH_SHA256.txt REALDATA_PREFLIGHT.log FREECOSMO_OPTIMIZE.log artifact/ 2>/dev/null || true
           cp -r realdata_results/* artifact/ 2>/dev/null || true
-          cp -r extension_profile_results/* artifact/ 2>/dev/null || true
-          cp rims_realdata_preflight.py rims_realdata_extension_profile.py artifact/ || true
+          cp -r freecosmo_results/* artifact/ 2>/dev/null || true
+          cp rims_realdata_preflight.py rims_realdata_freecosmo_optimize.py artifact/ || true
           cp scan_artifact/validated_shell_scan.csv artifact/V14_VALIDATED_SHELL_SCAN_INPUT.csv || true
           python - <<'PY'
           import json, subprocess, pathlib
