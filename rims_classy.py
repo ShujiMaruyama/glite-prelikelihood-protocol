@@ -9,17 +9,16 @@ from cobaya.theories.classy.classy import classy as CobayaClassy
 class RIMSClassy(CobayaClassy):
     """Cobaya CLASS wrapper with deterministic RIMS mass normalization.
 
-    The physical RIMS parameter space does not treat ``rims_phi_ref`` as a
-    free cosmological coordinate.  It is the reference field value that
-    enforces m_d(a=1)=m_U.  For every sampled cosmology this wrapper solves
-    the fixed point phi_ref = phi(a=1) with a cheap background-only CLASS
-    calculation, then performs the requested full CLASS calculation with the
-    native V7 normalization gate enabled.
+    ``rims_phi_ref`` is not a cosmological degree of freedom.  It is the
+    reference field value that enforces m_d(a=1)=m_U.  For each sampled
+    cosmology this wrapper solves phi_ref=phi(z=0) with a background-only
+    CLASS calculation and then runs the requested full calculation with the
+    native RIMS normalization gate enabled.
     """
 
     rims_norm_tolerance: float = 2.0e-9
-    rims_norm_maxiter: int = 12
-    rims_norm_default_ref: float = 4.343497008603
+    rims_norm_maxiter: int = 16
+    rims_norm_default_ref: float = 4.11730971054
 
     def initialize(self):
         super().initialize()
@@ -53,15 +52,24 @@ class RIMSClassy(CobayaClassy):
         candidates = [k for k in background if "phi" in k.lower() and "prime" not in k.lower()]
         if not candidates:
             raise RuntimeError(f"Could not identify scalar-field column in CLASS background keys: {list(background)}")
-        # Prefer the standard CLASS scalar-field label if decoration changed.
         candidates.sort(key=lambda k: ("scf" not in k.lower(), len(k)))
         return candidates[0]
+
+    @staticmethod
+    def _today_index(background: dict[str, Any]) -> int:
+        # Do not assume the Python background arrays inherit the file-output
+        # ordering.  Select the z=0 entry explicitly.
+        zkeys = [k for k in background if k.strip().lower() == "z"]
+        if zkeys:
+            z = np.asarray(background[zkeys[0]], dtype=float)
+            return int(np.nanargmin(np.abs(z)))
+        # CLASS normally returns early->late ordering; retain a safe fallback.
+        return -1
 
     def _normalization_args(self, args: dict[str, Any], phi_ref: float) -> dict[str, Any]:
         trial = dict(args)
         trial["rims_phi_ref"] = float(phi_ref)
         trial["rims_require_normalization"] = "no"
-        # Only the homogeneous background is required for the fixed-point solve.
         trial["output"] = ""
         for key in [
             "lensing",
@@ -81,9 +89,6 @@ class RIMSClassy(CobayaClassy):
 
         alpha = float(args.get("rims_alpha_U", 0.0))
         if abs(alpha) < 1.0e-14:
-            # At alpha_U=0 the mass map is constant and the reference point is
-            # physically irrelevant.  A fixed value avoids an artificial flat
-            # sampling direction.
             return self.rims_norm_default_ref
 
         signature = (
@@ -106,7 +111,8 @@ class RIMSClassy(CobayaClassy):
                 raw.compute()
                 bg = raw.get_background()
                 key = self._pick_phi_key(bg)
-                phi_today = float(np.asarray(bg[key])[-1])
+                idx = self._today_index(bg)
+                phi_today = float(np.asarray(bg[key], dtype=float)[idx])
             finally:
                 try:
                     raw.empty()
@@ -114,25 +120,22 @@ class RIMSClassy(CobayaClassy):
                     pass
 
             if not np.isfinite(phi_today):
-                raise self.classy_module.CosmoComputationError("RIMS phi_ref normalization returned non-finite phi(a=1)")
+                raise self.classy_module.CosmoComputationError(
+                    "RIMS phi_ref normalization returned non-finite phi(z=0)"
+                )
 
             if abs(phi_today - guess) <= self.rims_norm_tolerance:
                 self._rims_last_phi_ref = phi_today
                 self._rims_last_signature = signature
                 return phi_today
 
-            # The V7 normalization map is a rapidly convergent fixed point in
-            # the validated domain.  Mild damping protects excursions near the
-            # stability boundary without changing the fixed point.
             guess = 0.25 * guess + 0.75 * phi_today
 
         raise self.classy_module.CosmoComputationError(
-            f"RIMS phi_ref normalization did not converge after {self.rims_norm_maxiter} iterations"
+            f"RIMS phi_ref normalization did not converge after {self.rims_norm_maxiter} iterations; last={guess}"
         )
 
     def set(self, params_values_dict):
-        # Reproduce Cobaya's standard parameter translation, then insert the
-        # deterministic RIMS normalization before the full calculation.
         if not self.extra_args["output"]:
             for key in ["non_linear", "hmcode_version"]:
                 self.extra_args.pop(key, None)
