@@ -1,6 +1,8 @@
 name: temporary RIMS V13 Xi visibility scan
 
 on:
+  pull_request:
+    branches: [ main ]
   push:
     branches: [ tmp-rims-v13-xi-scan-20260729 ]
   workflow_dispatch:
@@ -36,7 +38,7 @@ jobs:
         run: |
           cat > scan_xi.py <<'PY'
           from pathlib import Path
-          import csv, json, math, os, shutil, subprocess, sys
+          import csv, json, math, shutil, subprocess, sys
           import numpy as np
 
           ROOT = Path.cwd()
@@ -51,10 +53,10 @@ jobs:
           ztargets = [0., 0.5, 1., 2., 3.]
 
           def tag(x):
-              return (f'{x:.6g}'.replace('-', 'm').replace('.', 'p').replace('+',''))
+              return f'{x:.6g}'.replace('-', 'm').replace('.', 'p').replace('+','')
 
           def ini_text(lam, omega_scf, phi_ref, prefix, require_norm=False, norm_tol=1e-8):
-              return f'''output = mPk\n'''+f'''gauge = synchronous\n'''+f'''ic = ad\n'''+f'''h = 0.67810\n'''+f'''omega_b = 0.02238280\n'''+f'''omega_cdm = 0.01201075\n'''+f'''omega_idm = 0.10809675\n'''+f'''idm_soundspeed = no\n'''+f'''N_ur = 3.044\n'''+f'''N_ncdm = 0\n'''+f'''YHe = BBN\n'''+f'''Omega_scf = {omega_scf:.12g}\n'''+f'''scf_parameters = {lam:.12g}, 0., 0., 0., 4.44, 0.\n'''+f'''attractor_ic_scf = no\n'''+f'''scf_tuning_index = 0\n'''+f'''rims_enabled = yes\n'''+f'''rims_alpha_U = 0.01\n'''+f'''rims_phi_transition = 100.\n'''+f'''rims_phi_ref = {phi_ref:.16g}\n'''+f'''rims_enforce_stability = yes\n'''+f'''rims_stability_tolerance = 1.e-10\n'''+f'''rims_require_normalization = {'yes' if require_norm else 'no'}\n'''+f'''rims_normalization_tolerance = {norm_tol:.3e}\n'''+f'''rims_subleading_adiabatic_ic = yes\n'''+f'''recombination = RECFAST\n'''+f'''z_reio = 7.6711\n'''+f'''reio_parametrization = reio_camb\n'''+f'''A_s = 2.100549e-9\n'''+f'''n_s = 0.9660499\n'''+f'''k_pivot = 0.05\n'''+f'''P_k_max_h/Mpc = 0.02\n'''+f'''z_pk = 0.\n'''+f'''root = {prefix}\n'''+f'''overwrite_root = yes\n'''+f'''write_background = yes\n'''+f'''write_parameters = yes\n'''+f'''write_warnings = yes\n'''+f'''input_verbose = 0\n'''+f'''background_verbose = 0\n'''+f'''thermodynamics_verbose = 0\n'''+f'''perturbations_verbose = 0\n'''+f'''transfer_verbose = 0\n'''+f'''primordial_verbose = 0\n'''+f'''harmonic_verbose = 0\n'''+f'''fourier_verbose = 0\n'''+f'''lensing_verbose = 0\n'''+f'''output_verbose = 0\n'''
+              return f'''output = mPk\ngauge = synchronous\nic = ad\nh = 0.67810\nomega_b = 0.02238280\nomega_cdm = 0.01201075\nomega_idm = 0.10809675\nidm_soundspeed = no\nN_ur = 3.044\nN_ncdm = 0\nYHe = BBN\nOmega_scf = {omega_scf:.12g}\nscf_parameters = {lam:.12g}, 0., 0., 0., 4.44, 0.\nattractor_ic_scf = no\nscf_tuning_index = 0\nrims_enabled = yes\nrims_alpha_U = 0.01\nrims_phi_transition = 100.\nrims_phi_ref = {phi_ref:.16g}\nrims_enforce_stability = yes\nrims_stability_tolerance = 1.e-10\nrims_require_normalization = {'yes' if require_norm else 'no'}\nrims_normalization_tolerance = {norm_tol:.3e}\nrims_subleading_adiabatic_ic = yes\nrecombination = RECFAST\nz_reio = 7.6711\nreio_parametrization = reio_camb\nA_s = 2.100549e-9\nn_s = 0.9660499\nk_pivot = 0.05\nP_k_max_h/Mpc = 0.02\nz_pk = 0.\nroot = {prefix}\noverwrite_root = yes\nwrite_background = yes\nwrite_parameters = yes\nwrite_warnings = yes\ninput_verbose = 0\nbackground_verbose = 0\nthermodynamics_verbose = 0\nperturbations_verbose = 0\ntransfer_verbose = 0\nprimordial_verbose = 0\nharmonic_verbose = 0\nfourier_verbose = 0\nlensing_verbose = 0\noutput_verbose = 0\n'''
 
           def run_one(lam, omega, phi_ref, label, require_norm=False, norm_tol=1e-8):
               d = WORK / label
@@ -68,18 +70,15 @@ jobs:
               bg = d/'run_background.dat'
               if cp.returncode != 0 or not bg.exists():
                   return {'success': False, 'returncode': cp.returncode, 'label': label,
+                          'lambda': lam, 'Omega_scf': omega,
                           'stdout_tail': cp.stdout[-2000:], 'stderr_tail': cp.stderr[-2000:]}
               a = np.loadtxt(bg)
-              z = a[:,0]
-              H = a[:,3]
-              phi = a[:,18]
-              s = a[:,23]
-              mratio = a[:,26]
-              meff2 = a[:,28]
-              stab = a[:,29]
+              z = a[:,0]; H = a[:,3]; phi = a[:,18]; s = a[:,23]
+              mratio = a[:,26]; meff2 = a[:,28]; stab = a[:,29]
               mask = (z >= 0.) & (z <= 3.)
               if not np.any(mask):
-                  return {'success': False, 'returncode': 99, 'label': label, 'stderr_tail': 'no z=0..3 rows'}
+                  return {'success': False, 'returncode': 99, 'label': label,
+                          'lambda': lam, 'Omega_scf': omega, 'stderr_tail': 'no z=0..3 rows'}
               xi = np.sqrt(np.maximum(meff2[mask],0.))/H[mask]
               rec = {
                   'success': True, 'label': label, 'lambda': lam, 'Omega_scf': omega,
@@ -121,8 +120,7 @@ jobs:
                   if not rec.get('success'):
                       break
                   final=rec
-                  mismatch=abs(rec['mratio_today']-1.)
-                  if mismatch < 2e-9:
+                  if abs(rec['mratio_today']-1.) < 2e-9:
                       break
                   phi_ref=rec['phi_today']
               validated=None
@@ -130,23 +128,19 @@ jobs:
                   label=f'validated_{name}_l{tag(lam)}_o{tag(omega)}'
                   validated=run_one(lam,omega,phi_ref,label,True,1e-8)
                   if validated.get('success'):
-                      src=WORK/label/'run_background.dat'
-                      shutil.copy2(src,OUT/f'{name}_background.dat')
+                      shutil.copy2(WORK/label/'run_background.dat',OUT/f'{name}_background.dat')
                       shutil.copy2(WORK/label/'run.ini',OUT/f'{name}.ini')
               normalized.append({'regime_target':name,'target_Xi_z1':targets[name],
                                  'coarse_seed':seed,'iteration_history':history,
                                  'validated':validated})
 
-          # Tabular coarse summary.
           fields=['success','lambda','Omega_scf','phi_ref','phi_today','mratio_today','s_today','min_stab_all',
                   'Xi_min_z0_3','Xi_max_z0_3','Xi_z0','Xi_z0.5','Xi_z1','Xi_z2','Xi_z3','label']
           with open(OUT/'coarse_scan.csv','w',newline='') as f:
-              w=csv.DictWriter(f,fieldnames=fields,extrasaction='ignore')
-              w.writeheader()
+              w=csv.DictWriter(f,fieldnames=fields,extrasaction='ignore'); w.writeheader()
               for r in coarse:w.writerow(r)
           (OUT/'scan_summary.json').write_text(json.dumps({'coarse':coarse,'chosen_normalized':normalized},indent=2))
 
-          # Compact regime table.
           final_rows=[]
           for item in normalized:
               v=item.get('validated')
@@ -154,9 +148,9 @@ jobs:
                   x=v['Xi_z1']
                   regime='horizon-shielded' if x<1 else ('relativistic-transition' if x<10 else 'QS-resolvable')
                   final_rows.append({'target':item['regime_target'],'regime_at_z1':regime,**v})
+          keys=['target','regime_at_z1','lambda','Omega_scf','phi_ref','phi_today','mratio_today','s_today','min_stab_all',
+                'Xi_min_z0_3','Xi_max_z0_3','Xi_z0','Xi_z0.5','Xi_z1','Xi_z2','Xi_z3','label']
           with open(OUT/'validated_regimes.csv','w',newline='') as f:
-              keys=['target','regime_at_z1','lambda','Omega_scf','phi_ref','phi_today','mratio_today','s_today','min_stab_all',
-                    'Xi_min_z0_3','Xi_max_z0_3','Xi_z0','Xi_z0.5','Xi_z1','Xi_z2','Xi_z3','label']
               w=csv.DictWriter(f,fieldnames=keys,extrasaction='ignore'); w.writeheader()
               for r in final_rows:w.writerow(r)
 
