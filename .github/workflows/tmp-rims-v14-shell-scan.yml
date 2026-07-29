@@ -1,0 +1,46 @@
+name: temporary RIMS V14 shell scan
+on:
+  push:
+    branches:
+      - tmp-rims-v14-shell-scan-20260729
+jobs:
+  shell_scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recover pinned RIMS V7 patch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p _patch_artifact
+          gh run download 30425050547 -n rims-v10-turnover-results -D _patch_artifact
+          cp _patch_artifact/rims_class_v3.3.4_v7.patch ./rims_class_v3.3.4_v7.patch
+      - name: Checkout, patch, and build CLASS v3.3.4
+        run: |
+          git clone --depth 1 https://github.com/lesgourg/class_public.git class_public
+          cd class_public
+          git fetch --depth 1 origin e85808324f51fc694d12e3ed7439552a3c3f9540
+          git checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          git apply ../rims_class_v3.3.4_v7.patch
+          make -j2
+          git rev-parse HEAD > ../CLASS_UPSTREAM_COMMIT.txt
+          sha256sum ../rims_class_v3.3.4_v7.patch > ../PATCH_SHA256.txt
+      - name: Install scan dependency
+        run: python -m pip install --quiet numpy
+      - name: Execute 3-axis shell scan
+        run: python rims_v14_scan.py
+      - name: Package scan artifact
+        if: always()
+        run: |
+          mkdir -p artifact
+          cp CLASS_UPSTREAM_COMMIT.txt PATCH_SHA256.txt artifact/ || true
+          cp -r scan_results/* artifact/ || true
+          cp rims_v14_scan.py artifact/ || true
+          (cd artifact && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-v14-shell-scan-results
+          path: artifact
+          retention-days: 7
