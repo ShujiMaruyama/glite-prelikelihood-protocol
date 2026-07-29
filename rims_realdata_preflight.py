@@ -1,5 +1,5 @@
 from pathlib import Path
-import csv, json, math, os, sys
+import csv, json
 
 from cobaya.model import get_model
 
@@ -9,11 +9,12 @@ PACKAGES = ROOT / 'cobaya_packages'
 SCAN = ROOT / 'scan_artifact'
 OUT = ROOT / 'realdata_results'
 OUT.mkdir(exist_ok=True)
-
 CSV = SCAN / 'validated_shell_scan.csv'
 
-# Fixed cosmological quantities inherited from the validated scan.
-fixed = {
+# Keep all fixed CLASS inputs in extra_args. Strings such as "no"/"yes" must
+# not be placed in Cobaya's params[value] block, where they are interpreted as
+# expressions.
+extra_args = {
     'h': 0.67810,
     'omega_b': 0.02238280,
     'omega_cdm': 0.01201075,
@@ -39,22 +40,19 @@ fixed = {
     'k_pivot': 0.05,
 }
 
-params = {k: {'value': v} for k, v in fixed.items()}
-params.update({
+params = {
     'Omega_scf': {'prior': {'min': 0.0, 'max': 0.70}},
     'rims_alpha_U': {'prior': {'min': 0.0, 'max': 0.06}},
     'rims_phi_transition': {'prior': {'min': 10.0, 'max': 250.0}},
     'rims_phi_ref': {'prior': {'min': 0.0, 'max': 10.0}},
-})
+}
 
 info = {
     'packages_path': str(PACKAGES),
     'theory': {
         'classy': {
             'path': str(CLASS),
-            'extra_args': {
-                'output': '',
-            },
+            'extra_args': extra_args,
         }
     },
     'likelihood': {
@@ -68,11 +66,10 @@ info = {
 
 model = get_model(info)
 like_names = list(model.likelihood)
-
 rows = []
+
 with open(CSV, newline='') as f:
-    reader = csv.DictReader(f)
-    for r in reader:
+    for r in csv.DictReader(f):
         point = {
             'Omega_scf': float(r['Omega_scf']),
             'rims_alpha_U': float(r['alpha_U']),
@@ -81,14 +78,13 @@ with open(CSV, newline='') as f:
         }
         try:
             post = model.logposterior(point, cached=False)
-            likes = {name: float(v) for name, v in zip(like_names, post.loglikes)}
             rec = {
                 'label': r['label'],
                 **point,
                 'logpost': float(post.logpost),
                 'minus2logL_total': float(-2.0 * sum(post.loglikes)),
             }
-            for name, val in likes.items():
+            for name, val in zip(like_names, post.loglikes):
                 rec[f'minus2logL__{name}'] = float(-2.0 * val)
             rows.append(rec)
             print('OK', rec['label'], rec['minus2logL_total'], flush=True)
@@ -96,7 +92,8 @@ with open(CSV, newline='') as f:
             rows.append({'label': r['label'], **point, 'error': repr(e)})
             print('ERR', r['label'], repr(e), flush=True)
 
-# Evaluate an almost-LambdaCDM anchor in the same patched code and data vector.
+# An almost-LambdaCDM anchor in the same patched executable: scalar fraction
+# and coupling set to zero, with the same standard cosmological parameters.
 anchor = {
     'Omega_scf': 0.0,
     'rims_alpha_U': 0.0,
@@ -115,10 +112,8 @@ try:
         anchor_rec[f'minus2logL__{name}'] = float(-2.0 * val)
 except Exception as e:
     anchor_rec = {'label': 'patched_LCDM_anchor', **anchor, 'error': repr(e)}
-
 rows.append(anchor_rec)
 
-# Rank successful branches by the real-data likelihood.
 success = [r for r in rows if 'minus2logL_total' in r]
 if success:
     best = min(r['minus2logL_total'] for r in success)
@@ -134,7 +129,11 @@ with open(OUT / 'RIMS_REALDATA_PREFLIGHT.csv', 'w', newline='') as f:
     w.writeheader(); w.writerows(rows)
 
 summary = {
-    'datasets': ['DESI DR2 BAO (Cobaya bao.desi_dr2)', 'Pantheon+ SN without SH0ES (Cobaya sn.pantheonplus)'],
+    'claim_boundary': 'Real-data fixed-standard-parameter profile-grid preflight; not production MCMC and not evidence.',
+    'datasets': [
+        'DESI DR2 BAO: Cobaya bao.desi_dr2',
+        'Pantheon+ SN without SH0ES: Cobaya sn.pantheonplus',
+    ],
     'evaluated_validated_branches': len(rows)-1,
     'successful_points': len(success),
     'failed_points': len(rows)-len(success),
@@ -146,3 +145,6 @@ if success:
 
 (OUT / 'RIMS_REALDATA_PREFLIGHT.json').write_text(json.dumps(summary, indent=2))
 print(json.dumps(summary, indent=2), flush=True)
+
+if not success:
+    raise SystemExit('No successful real-data likelihood evaluations')
