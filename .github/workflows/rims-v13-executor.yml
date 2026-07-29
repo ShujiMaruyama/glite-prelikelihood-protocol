@@ -1,0 +1,48 @@
+name: temporary RIMS V13 executor
+
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  xi_scan:
+    if: github.head_ref == 'tmp-rims-v13-xi-scan-20260729'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recover pinned RIMS V7 patch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p seed
+          gh run download 30425050547 -n rims-v10-turnover-results -D seed
+          test -s seed/rims_class_v3.3.4_v7.patch
+          sha256sum seed/rims_class_v3.3.4_v7.patch | tee PATCH_SHA256.txt
+      - name: Checkout, patch, and build CLASS v3.3.4
+        run: |
+          git clone --depth 1 --branch v3.3.4 https://github.com/lesgourg/class_public.git class_public
+          git -C class_public rev-parse HEAD | tee CLASS_UPSTREAM_COMMIT.txt
+          git -C class_public apply ../seed/rims_class_v3.3.4_v7.patch
+          make -C class_public -j2 class | tee BUILD.log
+      - name: Execute Xi visibility scan
+        run: python rims_v13_scan.py
+      - name: Package scan artifact
+        if: always()
+        run: |
+          mkdir -p scan_results
+          cp CLASS_UPSTREAM_COMMIT.txt scan_results/ 2>/dev/null || true
+          cp PATCH_SHA256.txt scan_results/ 2>/dev/null || true
+          cp BUILD.log scan_results/ 2>/dev/null || true
+          cp rims_v13_scan.py scan_results/ 2>/dev/null || true
+          find scan_results -type f -print0 | sort -z | xargs -0 sha256sum > scan_results/SHA256SUMS.txt || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-v13-xi-scan-results
+          path: scan_results/
+          retention-days: 7
