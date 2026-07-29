@@ -50,8 +50,10 @@ jobs:
           cobaya-install bao.desi_dr2 sn.pantheonplus -p "$PWD/cobaya_packages"
 
       - name: Execute fixed-standard-parameter real-data likelihood preflight
+        shell: bash
         run: |
-          python rims_realdata_preflight.py | tee REALDATA_PREFLIGHT.log
+          set -o pipefail
+          python rims_realdata_preflight.py 2>&1 | tee REALDATA_PREFLIGHT.log
 
       - name: Package preflight artifact
         if: always()
