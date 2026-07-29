@@ -36,11 +36,6 @@ jobs:
           git checkout e85808324f51fc694d12e3ed7439552a3c3f9540
           git apply ../rims_class_v3.3.4_v7.patch
           PYTHON=python3 make -j2
-          python3 - <<'PY'
-          import sys
-          sys.path.insert(0, 'python/build/lib.linux-x86_64-cpython-312')
-          print('CLASS build complete')
-          PY
           git rev-parse HEAD > ../CLASS_UPSTREAM_COMMIT.txt
           sha256sum ../rims_class_v3.3.4_v7.patch > ../PATCH_SHA256.txt
 
@@ -55,25 +50,24 @@ jobs:
           set -o pipefail
           python rims_realdata_preflight.py 2>&1 | tee REALDATA_PREFLIGHT.log
 
-      - name: Execute dense low-Omega real-data profile scan
+      - name: Execute scalar-fraction extension real-data profile
         shell: bash
         run: |
           set -o pipefail
-          python rims_realdata_dense_profile.py 2>&1 | tee DENSE_REALDATA_PROFILE.log
+          python rims_realdata_extension_profile.py 2>&1 | tee EXTENSION_REALDATA_PROFILE.log
 
       - name: Package preflight artifact
         if: always()
         run: |
           mkdir -p artifact
-          cp CLASS_UPSTREAM_COMMIT.txt PATCH_SHA256.txt REALDATA_PREFLIGHT.log DENSE_REALDATA_PROFILE.log artifact/ 2>/dev/null || true
+          cp CLASS_UPSTREAM_COMMIT.txt PATCH_SHA256.txt REALDATA_PREFLIGHT.log EXTENSION_REALDATA_PROFILE.log artifact/ 2>/dev/null || true
           cp -r realdata_results/* artifact/ 2>/dev/null || true
-          cp -r dense_profile_results/* artifact/ 2>/dev/null || true
-          cp rims_realdata_preflight.py rims_realdata_dense_profile.py artifact/ || true
+          cp -r extension_profile_results/* artifact/ 2>/dev/null || true
+          cp rims_realdata_preflight.py rims_realdata_extension_profile.py artifact/ || true
           cp scan_artifact/validated_shell_scan.csv artifact/V14_VALIDATED_SHELL_SCAN_INPUT.csv || true
           python - <<'PY'
           import json, subprocess, pathlib
-          p=pathlib.Path('artifact/ENVIRONMENT.json')
-          p.write_text(json.dumps({'python':subprocess.getoutput('python --version'),'pip_freeze':subprocess.getoutput('pip freeze')},indent=2))
+          pathlib.Path('artifact/ENVIRONMENT.json').write_text(json.dumps({'python':subprocess.getoutput('python --version'),'pip_freeze':subprocess.getoutput('pip freeze')},indent=2))
           PY
           (cd artifact && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
 
