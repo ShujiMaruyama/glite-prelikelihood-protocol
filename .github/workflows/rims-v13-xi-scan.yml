@@ -1,0 +1,183 @@
+name: temporary RIMS V13 Xi visibility scan
+
+on:
+  push:
+    branches: [ tmp-rims-v13-xi-scan-20260729 ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  xi_scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Recover pinned RIMS V7 patch from successful V10 artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p seed
+          gh run download 30425050547 -n rims-v10-turnover-results -D seed
+          test -s seed/rims_class_v3.3.4_v7.patch
+          sha256sum seed/rims_class_v3.3.4_v7.patch | tee PATCH_SHA256.txt
+
+      - name: Checkout and patch CLASS v3.3.4
+        run: |
+          git clone --depth 1 --branch v3.3.4 https://github.com/lesgourg/class_public.git class_public
+          git -C class_public rev-parse HEAD | tee CLASS_UPSTREAM_COMMIT.txt
+          git -C class_public apply ../seed/rims_class_v3.3.4_v7.patch
+          make -C class_public -j2 class | tee BUILD.log
+
+      - name: Execute coarse lambda-Omega scan and normalized representatives
+        run: |
+          cat > scan_xi.py <<'PY'
+          from pathlib import Path
+          import csv, json, math, os, shutil, subprocess, sys
+          import numpy as np
+
+          ROOT = Path.cwd()
+          CLASS = ROOT / 'class_public' / 'class'
+          WORK = ROOT / 'scan_work'
+          OUT = ROOT / 'scan_results'
+          WORK.mkdir(exist_ok=True)
+          OUT.mkdir(exist_ok=True)
+
+          lambdas = [5., 10., 20., 40., 60., 80., 100., 120.]
+          omegas = [1e-3, 1e-2, 3e-2, 1e-1, 3e-1]
+          ztargets = [0., 0.5, 1., 2., 3.]
+
+          def tag(x):
+              return (f'{x:.6g}'.replace('-', 'm').replace('.', 'p').replace('+',''))
+
+          def ini_text(lam, omega_scf, phi_ref, prefix, require_norm=False, norm_tol=1e-8):
+              return f'''output = mPk\n'''+f'''gauge = synchronous\n'''+f'''ic = ad\n'''+f'''h = 0.67810\n'''+f'''omega_b = 0.02238280\n'''+f'''omega_cdm = 0.01201075\n'''+f'''omega_idm = 0.10809675\n'''+f'''idm_soundspeed = no\n'''+f'''N_ur = 3.044\n'''+f'''N_ncdm = 0\n'''+f'''YHe = BBN\n'''+f'''Omega_scf = {omega_scf:.12g}\n'''+f'''scf_parameters = {lam:.12g}, 0., 0., 0., 4.44, 0.\n'''+f'''attractor_ic_scf = no\n'''+f'''scf_tuning_index = 0\n'''+f'''rims_enabled = yes\n'''+f'''rims_alpha_U = 0.01\n'''+f'''rims_phi_transition = 100.\n'''+f'''rims_phi_ref = {phi_ref:.16g}\n'''+f'''rims_enforce_stability = yes\n'''+f'''rims_stability_tolerance = 1.e-10\n'''+f'''rims_require_normalization = {'yes' if require_norm else 'no'}\n'''+f'''rims_normalization_tolerance = {norm_tol:.3e}\n'''+f'''rims_subleading_adiabatic_ic = yes\n'''+f'''recombination = RECFAST\n'''+f'''z_reio = 7.6711\n'''+f'''reio_parametrization = reio_camb\n'''+f'''A_s = 2.100549e-9\n'''+f'''n_s = 0.9660499\n'''+f'''k_pivot = 0.05\n'''+f'''P_k_max_h/Mpc = 0.02\n'''+f'''z_pk = 0.\n'''+f'''root = {prefix}\n'''+f'''overwrite_root = yes\n'''+f'''write_background = yes\n'''+f'''write_parameters = yes\n'''+f'''write_warnings = yes\n'''+f'''input_verbose = 0\n'''+f'''background_verbose = 0\n'''+f'''thermodynamics_verbose = 0\n'''+f'''perturbations_verbose = 0\n'''+f'''transfer_verbose = 0\n'''+f'''primordial_verbose = 0\n'''+f'''harmonic_verbose = 0\n'''+f'''fourier_verbose = 0\n'''+f'''lensing_verbose = 0\n'''+f'''output_verbose = 0\n'''
+
+          def run_one(lam, omega, phi_ref, label, require_norm=False, norm_tol=1e-8):
+              d = WORK / label
+              d.mkdir(parents=True, exist_ok=True)
+              prefix = str((d / 'run_').resolve())
+              ini = d / 'run.ini'
+              ini.write_text(ini_text(lam, omega, phi_ref, prefix, require_norm, norm_tol))
+              cp = subprocess.run([str(CLASS), str(ini)], cwd=ROOT/'class_public', text=True, capture_output=True)
+              (d/'stdout.txt').write_text(cp.stdout)
+              (d/'stderr.txt').write_text(cp.stderr)
+              bg = d/'run_background.dat'
+              if cp.returncode != 0 or not bg.exists():
+                  return {'success': False, 'returncode': cp.returncode, 'label': label,
+                          'stdout_tail': cp.stdout[-2000:], 'stderr_tail': cp.stderr[-2000:]}
+              a = np.loadtxt(bg)
+              z = a[:,0]
+              H = a[:,3]
+              phi = a[:,18]
+              s = a[:,23]
+              mratio = a[:,26]
+              meff2 = a[:,28]
+              stab = a[:,29]
+              mask = (z >= 0.) & (z <= 3.)
+              if not np.any(mask):
+                  return {'success': False, 'returncode': 99, 'label': label, 'stderr_tail': 'no z=0..3 rows'}
+              xi = np.sqrt(np.maximum(meff2[mask],0.))/H[mask]
+              rec = {
+                  'success': True, 'label': label, 'lambda': lam, 'Omega_scf': omega,
+                  'phi_ref': phi_ref, 'phi_today': float(phi[-1]),
+                  'mratio_today': float(mratio[-1]), 's_today': float(s[-1]),
+                  'min_stab_all': float(np.min(stab)),
+                  'Xi_min_z0_3': float(np.min(xi)), 'Xi_max_z0_3': float(np.max(xi)),
+              }
+              for zz in ztargets:
+                  i = int(np.argmin(np.abs(z-zz)))
+                  rec[f'Xi_z{zz:g}'] = float(math.sqrt(max(meff2[i],0.))/H[i])
+                  rec[f's_z{zz:g}'] = float(s[i])
+              return rec
+
+          coarse=[]
+          initial_ref=4.343497008603
+          for lam in lambdas:
+              for omega in omegas:
+                  label=f'coarse_l{tag(lam)}_o{tag(omega)}'
+                  rec=run_one(lam,omega,initial_ref,label,False)
+                  coarse.append(rec)
+                  print('COARSE',lam,omega,rec.get('success'),rec.get('Xi_z1'),rec.get('mratio_today'))
+
+          ok=[r for r in coarse if r.get('success') and r.get('Xi_z1',0)>0 and r.get('min_stab_all',-1)>=-1e-10]
+          targets={'shielded':0.3,'transition':3.0,'qs_resolvable':12.0}
+          chosen={}
+          for name,target in targets.items():
+              if ok:
+                  chosen[name]=min(ok,key=lambda r: abs(math.log(r['Xi_z1']/target)))
+
+          normalized=[]
+          for name,seed in chosen.items():
+              lam=seed['lambda']; omega=seed['Omega_scf']; phi_ref=initial_ref
+              history=[]; final=None
+              for it in range(12):
+                  label=f'norm_{name}_it{it}_l{tag(lam)}_o{tag(omega)}'
+                  rec=run_one(lam,omega,phi_ref,label,False)
+                  history.append(rec)
+                  if not rec.get('success'):
+                      break
+                  final=rec
+                  mismatch=abs(rec['mratio_today']-1.)
+                  if mismatch < 2e-9:
+                      break
+                  phi_ref=rec['phi_today']
+              validated=None
+              if final and abs(final['mratio_today']-1.) < 1e-8:
+                  label=f'validated_{name}_l{tag(lam)}_o{tag(omega)}'
+                  validated=run_one(lam,omega,phi_ref,label,True,1e-8)
+                  if validated.get('success'):
+                      src=WORK/label/'run_background.dat'
+                      shutil.copy2(src,OUT/f'{name}_background.dat')
+                      shutil.copy2(WORK/label/'run.ini',OUT/f'{name}.ini')
+              normalized.append({'regime_target':name,'target_Xi_z1':targets[name],
+                                 'coarse_seed':seed,'iteration_history':history,
+                                 'validated':validated})
+
+          # Tabular coarse summary.
+          fields=['success','lambda','Omega_scf','phi_ref','phi_today','mratio_today','s_today','min_stab_all',
+                  'Xi_min_z0_3','Xi_max_z0_3','Xi_z0','Xi_z0.5','Xi_z1','Xi_z2','Xi_z3','label']
+          with open(OUT/'coarse_scan.csv','w',newline='') as f:
+              w=csv.DictWriter(f,fieldnames=fields,extrasaction='ignore')
+              w.writeheader()
+              for r in coarse:w.writerow(r)
+          (OUT/'scan_summary.json').write_text(json.dumps({'coarse':coarse,'chosen_normalized':normalized},indent=2))
+
+          # Compact regime table.
+          final_rows=[]
+          for item in normalized:
+              v=item.get('validated')
+              if v and v.get('success'):
+                  x=v['Xi_z1']
+                  regime='horizon-shielded' if x<1 else ('relativistic-transition' if x<10 else 'QS-resolvable')
+                  final_rows.append({'target':item['regime_target'],'regime_at_z1':regime,**v})
+          with open(OUT/'validated_regimes.csv','w',newline='') as f:
+              keys=['target','regime_at_z1','lambda','Omega_scf','phi_ref','phi_today','mratio_today','s_today','min_stab_all',
+                    'Xi_min_z0_3','Xi_max_z0_3','Xi_z0','Xi_z0.5','Xi_z1','Xi_z2','Xi_z3','label']
+              w=csv.DictWriter(f,fieldnames=keys,extrasaction='ignore'); w.writeheader()
+              for r in final_rows:w.writerow(r)
+
+          if not final_rows:
+              print('No normalized representatives found',file=sys.stderr)
+              sys.exit(2)
+          PY
+          python scan_xi.py
+
+      - name: Package scan artifact
+        if: always()
+        run: |
+          cp CLASS_UPSTREAM_COMMIT.txt scan_results/ 2>/dev/null || true
+          cp PATCH_SHA256.txt scan_results/ 2>/dev/null || true
+          cp BUILD.log scan_results/ 2>/dev/null || true
+          cp scan_xi.py scan_results/ 2>/dev/null || true
+          find scan_results -type f -print0 | sort -z | xargs -0 sha256sum > scan_results/SHA256SUMS.txt || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-v13-xi-scan-results
+          path: scan_results/
+          retention-days: 7
