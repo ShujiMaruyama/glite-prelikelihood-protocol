@@ -29,6 +29,8 @@ jobs:
           git -C class_public rev-parse HEAD | tee CLASS_UPSTREAM_COMMIT.txt
           git -C class_public apply ../seed/rims_class_v3.3.4_v7.patch
           make -C class_public -j2 class | tee BUILD.log
+      - name: Install scan dependency
+        run: python -m pip install --disable-pip-version-check numpy
       - name: Execute Xi visibility scan
         run: python rims_v13_scan.py
       - name: Package scan artifact
