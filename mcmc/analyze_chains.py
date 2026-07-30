@@ -35,10 +35,13 @@ def main():
     names = [p.name for p in samples.getParamNames().names]
     weights = np.asarray(samples.weights, dtype=float)
 
+    # Include all headline cosmological/RIMS coordinates and the common Planck
+    # calibration nuisance so that the declared ESS floor cannot silently miss
+    # a slowly mixing sampled direction.
     sampled_interest = [
-        "H0", "omega_b", "omega_dm", "logA", "n_s", "tau_reio",
-        "Omega_scf", "rims_alpha_U", "rims_phi_transition",
-        "Omega_m", "sigma8", "S8"
+        "H0", "omega_b", "omega_cdm", "omega_dm", "logA", "n_s", "tau_reio",
+        "Omega_scf", "rims_alpha_U", "rims_phi_transition", "A_planck",
+        "Omega_m", "sigma8", "S8",
     ]
     rows = []
     ess_values = []
@@ -49,10 +52,11 @@ def main():
         vals = samples.samples[:, j]
         ess = float(samples.getEffectiveSamples(j))
         ess_values.append(ess)
+        mean = float(np.average(vals, weights=weights))
         rows.append({
             "parameter": name,
-            "mean": float(np.average(vals, weights=weights)),
-            "std": float(np.sqrt(np.average((vals - np.average(vals, weights=weights)) ** 2, weights=weights))),
+            "mean": mean,
+            "std": float(np.sqrt(np.average((vals - mean) ** 2, weights=weights))),
             "q025": weighted_quantile(vals, weights, 0.025),
             "q16": weighted_quantile(vals, weights, 0.16),
             "q50": weighted_quantile(vals, weights, 0.50),
@@ -68,16 +72,34 @@ def main():
     except Exception:
         gelman_rubin = float("nan")
 
-    # Cobaya writes likelihood chi2 values as derived chain columns.  Sum them
-    # at the maximum-posterior retained sample to obtain an auditable best
-    # sampled chi2 without inventing a minimizer result.
+    # GetDist stores Cobaya's second chain column (minus log posterior) in
+    # ``samples.loglikes``.  The maximum-posterior retained sample is therefore
+    # its minimum.  Cobaya also writes a total ``chi2`` column *and* both
+    # aggregate type columns (chi2__CMB/BAO/SN) and individual likelihood
+    # columns.  Summing every chi2__* would double count the data.  Prefer the
+    # explicit total chi2 column; retain only leaf likelihoods as components.
     best_index = int(np.argmin(samples.loglikes))
-    best_params = {name: float(samples.samples[best_index, names.index(name)]) for name in names if not name.startswith("chi2__")}
-    chi2_cols = [name for name in names if name.startswith("chi2__")]
-    best_components = {
-        name: float(samples.samples[best_index, names.index(name)]) for name in chi2_cols
+    best_params = {
+        name: float(samples.samples[best_index, names.index(name)])
+        for name in names
+        if name != "chi2" and not name.startswith("chi2__")
     }
-    best_chi2 = float(sum(best_components.values())) if best_components else float("nan")
+
+    aggregate_chi2 = {"chi2__CMB", "chi2__BAO", "chi2__SN"}
+    leaf_chi2_cols = [
+        name for name in names
+        if name.startswith("chi2__") and name not in aggregate_chi2
+    ]
+    best_components = {
+        name: float(samples.samples[best_index, names.index(name)])
+        for name in leaf_chi2_cols
+    }
+    if "chi2" in names:
+        best_chi2 = float(samples.samples[best_index, names.index("chi2")])
+    elif best_components:
+        best_chi2 = float(sum(best_components.values()))
+    else:
+        best_chi2 = float("nan")
 
     extra = {}
     if "rims_alpha_U" in names:
@@ -98,7 +120,10 @@ def main():
         try:
             prog = pd.read_csv(progress_path, sep=r"\s+", comment="#")
             if len(prog):
-                progress_last = {k: (float(v) if np.issubdtype(type(v), np.number) else str(v)) for k, v in prog.iloc[-1].to_dict().items()}
+                progress_last = {
+                    k: (float(v) if np.issubdtype(type(v), np.number) else str(v))
+                    for k, v in prog.iloc[-1].to_dict().items()
+                }
         except Exception as exc:
             progress_last = {"parse_error": repr(exc)}
 
