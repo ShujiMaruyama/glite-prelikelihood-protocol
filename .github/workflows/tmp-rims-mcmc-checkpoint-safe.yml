@@ -6,10 +6,6 @@ on:
 
 jobs:
   checkpoint:
-    strategy:
-      fail-fast: false
-      matrix:
-        model: [lcdm, scalar]
     runs-on: ubuntu-latest
     timeout-minutes: 330
     env:
@@ -20,15 +16,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Recover audited inference files
-        env:
-          MODEL: ${{ matrix.model }}
+      - name: Recover audited RIMS inference files
         run: |
           mkdir -p mcmc
           BASE=https://raw.githubusercontent.com/ShujiMaruyama/glite-prelikelihood-protocol/ed4cffb222936a2cfd207204e6df4782e4cce50d
-          curl -fsSL "$BASE/mcmc/$MODEL.yaml" -o "mcmc/$MODEL.yaml"
+          curl -fsSL "$BASE/mcmc/rims.yaml" -o mcmc/rims.yaml
+          curl -fsSL "$BASE/mcmc/rims_exact.yaml" -o mcmc/rims_exact.yaml
           curl -fsSL "$BASE/mcmc/analyze_chains.py" -o mcmc/analyze_chains.py
           curl -fsSL "$BASE/rims_classy.py" -o rims_classy.py
+
+      - name: Fix background-only normalization wrapper
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('rims_classy.py')
+          s = p.read_text()
+          needle = '            "z_pk",\n'
+          replacement = needle + '            "ic",\n            "gauge",\n            "idm_soundspeed",\n            "rims_subleading_adiabatic_ic",\n'
+          if needle not in s:
+              raise SystemExit('normalization key insertion point not found')
+          p.write_text(s.replace(needle, replacement, 1))
+          PY
 
       - name: Recover pinned RIMS V7 patch
         env:
@@ -65,61 +73,59 @@ jobs:
         run: |
           cobaya-install planck_2018_lowl.TT planck_2018_lowl.EE planck_2018_highl_plik.TTTEEE_lite_native bao.desi_dr2 sn.pantheonplus -p packages
 
-      - name: Validate model configuration
-        env:
-          MODEL: ${{ matrix.model }}
+      - name: True fixed-point RIMS posterior evaluation
         run: |
-          cobaya-run "mcmc/$MODEL.yaml" --test
+          set -o pipefail
+          cobaya-run mcmc/rims_exact.yaml 2>&1 | tee rims_exact_evaluate.log
+
+      - name: Validate corrected RIMS MCMC startup
+        run: |
+          set -o pipefail
+          cobaya-run mcmc/rims.yaml --test 2>&1 | tee rims_startup.log
           rm -rf chains
 
-      - name: Run checkpoint-safe four-chain MCMC
-        env:
-          MODEL: ${{ matrix.model }}
+      - name: Run checkpoint-safe four-chain RIMS MCMC
         run: |
           set +e
           mkdir -p chains
           timeout --signal=TERM --kill-after=60s 300m \
-            mpirun --oversubscribe -np 4 cobaya-run "mcmc/$MODEL.yaml" \
-            2>&1 | tee "mcmc_${MODEL}.log"
+            mpirun --oversubscribe -np 4 cobaya-run mcmc/rims.yaml \
+            2>&1 | tee mcmc_rims.log
           RC=${PIPESTATUS[0]}
-          echo "$RC" > "MCMC_EXIT_CODE_${MODEL}.txt"
+          echo "$RC" > MCMC_EXIT_CODE_rims.txt
           if [ "$RC" -eq 0 ]; then
-            echo "MCMC completed before checkpoint timeout"
+            echo "RIMS MCMC completed before checkpoint timeout"
           elif [ "$RC" -eq 124 ] || [ "$RC" -eq 143 ]; then
-            echo "Checkpoint timeout reached; preserving chain state"
+            echo "Checkpoint timeout reached; preserving RIMS chain state"
           else
-            echo "MCMC exited unexpectedly with code $RC"
+            echo "RIMS MCMC exited unexpectedly with code $RC"
           fi
           exit 0
 
-      - name: Analyze current chain state
+      - name: Analyze current RIMS chain state
         if: always()
-        env:
-          MODEL: ${{ matrix.model }}
         run: |
-          if ls "chains/${MODEL}"*.txt >/dev/null 2>&1; then
-            python mcmc/analyze_chains.py --model "$MODEL" --root "chains/$MODEL" --out "analysis_$MODEL" || true
+          if ls chains/rims*.txt >/dev/null 2>&1; then
+            python mcmc/analyze_chains.py --model rims --root chains/rims --out analysis_rims || true
           else
-            echo "No chain text files found yet" > "analysis_${MODEL}_missing.txt"
+            echo "No RIMS chain text files found yet" > analysis_rims_missing.txt
           fi
 
       - name: Package checkpoint artifact
         if: always()
-        env:
-          MODEL: ${{ matrix.model }}
         run: |
           mkdir -p artifact
           cp CLASS_UPSTREAM_COMMIT.txt PATCH_SHA256.txt artifact/ || true
-          cp "mcmc/$MODEL.yaml" mcmc/analyze_chains.py artifact/ || true
-          cp "mcmc_${MODEL}.log" "MCMC_EXIT_CODE_${MODEL}.txt" artifact/ || true
+          cp mcmc/rims.yaml mcmc/rims_exact.yaml mcmc/analyze_chains.py rims_classy.py artifact/ || true
+          cp rims_exact_evaluate.log rims_startup.log mcmc_rims.log MCMC_EXIT_CODE_rims.txt artifact/ || true
           cp -r chains artifact/ || true
-          cp -r "analysis_$MODEL" artifact/ || true
-          cp "analysis_${MODEL}_missing.txt" artifact/ || true
+          cp -r analysis_rims artifact/ || true
+          cp analysis_rims_missing.txt artifact/ || true
           (cd artifact && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: rims-mcmc-checkpoint-${{ matrix.model }}
+          name: rims-mcmc-checkpoint-rims
           path: artifact
           retention-days: 7
