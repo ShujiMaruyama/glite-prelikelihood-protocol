@@ -1,9 +1,9 @@
 name: temporary RIMS exact logposterior diagnostic
 
-# Synchronize after PR creation so the pull_request workflow fires.
 on:
-  pull_request:
-    branches: [main]
+  push:
+    branches:
+      - tmp-rims-logposterior-diag-20260730
 
 jobs:
   diagnose:
