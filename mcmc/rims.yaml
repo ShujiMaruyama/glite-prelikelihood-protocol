@@ -13,25 +13,25 @@ theory:
     python_path: .
     path: ./class_public
     ignore_obsolete: false
-    stop_at_error: true
+    stop_at_error: false
     rims_norm_tolerance: 2.0e-9
     rims_norm_maxiter: 16
     extra_args:
       gauge: synchronous
       ic: ad
-      idm_soundspeed: no
+      idm_soundspeed: "no"
       N_ur: 3.044
       N_ncdm: 0
       YHe: BBN
       scf_parameters: "5., 0., 0., 0., 4.44, 0."
-      attractor_ic_scf: no
+      attractor_ic_scf: "no"
       scf_tuning_index: 0
-      rims_enabled: yes
-      rims_enforce_stability: yes
+      rims_enabled: "yes"
+      rims_enforce_stability: "yes"
       rims_stability_tolerance: 1.e-10
-      rims_require_normalization: yes
+      rims_require_normalization: "yes"
       rims_normalization_tolerance: 1.e-8
-      rims_subleading_adiabatic_ic: yes
+      rims_subleading_adiabatic_ic: "yes"
       recombination: HYREC
       reio_parametrization: reio_camb
       k_pivot: 0.05
@@ -119,4 +119,4 @@ sampler:
     output_every: 60s
     max_tries: 1000d
 
-debug: true
+debug: false
