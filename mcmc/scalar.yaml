@@ -20,7 +20,7 @@ theory:
       N_ncdm: 0
       YHe: BBN
       scf_parameters: "5., 0., 0., 0., 4.44, 0."
-      attractor_ic_scf: no
+      attractor_ic_scf: "no"
       scf_tuning_index: 0
       recombination: HYREC
       reio_parametrization: reio_camb
