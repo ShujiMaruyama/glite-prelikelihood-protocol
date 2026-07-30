@@ -25,27 +25,38 @@ jobs:
           curl -fsSL "$BASE/mcmc/rims_exact.yaml" -o mcmc/rims_exact.yaml
           curl -fsSL "$BASE/mcmc/analyze_chains.py" -o mcmc/analyze_chains.py
 
-      - name: Narrow only the initial-reference distributions
+      - name: Build deterministic evaluate and fixed-reference MCMC inputs
         run: |
           python - <<'PY'
-          import yaml
+          import copy, yaml
           from pathlib import Path
           p=Path('mcmc/rims.yaml')
           d=yaml.safe_load(p.read_text())
           refs={
-            'H0': (68.02239956,0.02),
-            'omega_b': (0.0224611661,2e-5),
-            'omega_dm': (0.1185203994,1e-4),
-            'logA': (3.0447838321,1e-3),
-            'n_s': (0.9660499,5e-4),
-            'tau_reio': (0.0544,1e-3),
-            'Omega_scf': (0.1017248094,5e-4),
-            'rims_alpha_U': (0.0613181089,5e-4),
-            'rims_phi_transition': (20.091078,0.2),
+            'H0': 68.02239956,
+            'omega_b': 0.0224611661,
+            'omega_dm': 0.1185203994,
+            'logA': 3.0447838321,
+            'n_s': 0.9660499,
+            'tau_reio': 0.0544,
+            'Omega_scf': 0.1017248094,
+            'rims_alpha_U': 0.0613181089,
+            'rims_phi_transition': 20.091078,
           }
-          for k,(loc,scale) in refs.items():
-            d['params'][k]['ref']={'dist':'norm','loc':loc,'scale':scale}
-          p.write_text(yaml.safe_dump(d,sort_keys=False))
+          # Keep declared priors untouched; change reference points only.
+          for k,v in refs.items():
+            d['params'][k]['ref']=v
+          # Explicit Planck calibration reference. Its inherited prior remains unchanged.
+          d.setdefault('params', {})['A_planck']={'ref':1.0}
+          d['debug']=True
+          # Fail loudly on theory errors during diagnosis.
+          d['theory']['rims_classy.RIMSClassy']['stop_at_error']=True
+          Path('mcmc/rims_fixedref.yaml').write_text(yaml.safe_dump(d,sort_keys=False))
+
+          e=copy.deepcopy(d)
+          e['output']='chains/rims_evaluate'
+          e['sampler']={'evaluate': {'override': refs}}
+          Path('mcmc/rims_evaluate.yaml').write_text(yaml.safe_dump(e,sort_keys=False))
           PY
 
       - name: Recover pinned RIMS V7 patch
@@ -83,21 +94,22 @@ jobs:
         run: |
           cobaya-install planck_2018_lowl.TT planck_2018_lowl.EE planck_2018_highl_plik.TTTEEE_lite_native bao.desi_dr2 sn.pantheonplus -p packages
 
-      - name: Deterministic exact-point validation
+      - name: True fixed-point posterior evaluation
         run: |
-          cobaya-run mcmc/rims_exact.yaml --test
-          rm -rf chains
+          set -o pipefail
+          cobaya-run mcmc/rims_evaluate.yaml 2>&1 | tee rims_evaluate.log
 
-      - name: MCMC startup validation with unchanged priors
+      - name: MCMC startup validation at fixed finite reference
         run: |
-          cobaya-run mcmc/rims.yaml --test
-          rm -rf chains
+          set -o pipefail
+          cobaya-run mcmc/rims_fixedref.yaml --test 2>&1 | tee rims_startup.log
+          rm -rf chains/rims chains/rims.*
 
       - name: Run four-chain RIMS MCMC
         run: |
           set -o pipefail
           mkdir -p chains
-          mpirun --oversubscribe -np 4 cobaya-run mcmc/rims.yaml 2>&1 | tee mcmc_rims.log
+          mpirun --oversubscribe -np 4 cobaya-run mcmc/rims_fixedref.yaml 2>&1 | tee mcmc_rims.log
 
       - name: Analyze posterior and convergence
         if: success()
@@ -109,9 +121,9 @@ jobs:
         run: |
           mkdir -p artifact
           cp CLASS_UPSTREAM_COMMIT.txt PATCH_SHA256.txt artifact/ || true
-          cp mcmc/rims.yaml mcmc/rims_exact.yaml artifact/ || true
+          cp mcmc/rims.yaml mcmc/rims_exact.yaml mcmc/rims_fixedref.yaml mcmc/rims_evaluate.yaml artifact/ || true
           cp rims_classy.py mcmc/analyze_chains.py artifact/ || true
-          cp mcmc_rims.log artifact/ || true
+          cp rims_evaluate.log rims_startup.log mcmc_rims.log artifact/ || true
           cp -r chains artifact/ || true
           cp -r analysis_rims artifact/ || true
           (cd artifact && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
