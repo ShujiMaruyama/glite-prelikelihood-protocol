@@ -1,4 +1,4 @@
-name: temporary RIMS exact logposterior diagnostic v2
+name: temporary RIMS exact logposterior diagnostic v3
 
 on:
   pull_request:
@@ -13,7 +13,7 @@ jobs:
       OPENBLAS_NUM_THREADS: 1
       MKL_NUM_THREADS: 1
       PYTHONUNBUFFERED: 1
-      RIMS_DIAGNOSTIC_REVISION: 2
+      RIMS_DIAGNOSTIC_REVISION: 3
     steps:
       - uses: actions/checkout@v4
       - name: Recover audited inference files
@@ -23,6 +23,20 @@ jobs:
           curl -fsSL "$base/rims_classy.py" -o rims_classy.py
           curl -fsSL "$base/mcmc/rims.yaml" -o mcmc/rims.yaml
           curl -fsSL "$base/mcmc/rims_exact.yaml" -o mcmc/rims_exact.yaml
+      - name: Patch background-only normalization path
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('rims_classy.py')
+          s = p.read_text()
+          old = '        trial["output"] = ""\n'
+          new = '        trial["output"] = ""\n        trial.pop("ic", None)\n'
+          if old not in s:
+              raise SystemExit('expected normalization output line not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          print('Patched normalization path: remove ic only for background-only solve')
+          PY
       - name: Recover pinned RIMS patch
         env:
           GH_TOKEN: ${{ github.token }}
