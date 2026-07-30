@@ -40,17 +40,17 @@ theory:
 params:
   H0:
     prior: {min: 55.0, max: 82.0}
-    ref: 68.02239956
+    ref: {dist: norm, loc: 68.02239956, scale: 0.20}
     proposal: 0.35
     latex: H_0
   omega_b:
     prior: {min: 0.019, max: 0.026}
-    ref: 0.0224611661
+    ref: {dist: norm, loc: 0.0224611661, scale: 0.00005}
     proposal: 0.00012
     latex: \Omega_b h^2
   omega_dm:
     prior: {min: 0.090, max: 0.155}
-    ref: 0.1185203994
+    ref: {dist: norm, loc: 0.1185203994, scale: 0.0005}
     proposal: 0.0012
     drop: true
     latex: \omega_{dm}
@@ -62,7 +62,7 @@ params:
     latex: \omega_{idm}
   logA:
     prior: {min: 2.75, max: 3.35}
-    ref: 3.0447838321
+    ref: {dist: norm, loc: 3.0447838321, scale: 0.003}
     proposal: 0.008
     drop: true
     latex: \ln(10^{10} A_s)
@@ -71,27 +71,27 @@ params:
     latex: A_s
   n_s:
     prior: {min: 0.90, max: 1.05}
-    ref: 0.9660499
+    ref: {dist: norm, loc: 0.9660499, scale: 0.0015}
     proposal: 0.003
     latex: n_s
   tau_reio:
     prior: {min: 0.020, max: 0.120}
-    ref: 0.0544
+    ref: {dist: norm, loc: 0.0544, scale: 0.002}
     proposal: 0.005
     latex: \tau
   Omega_scf:
     prior: {min: 0.001, max: 0.180}
-    ref: 0.1017248094
+    ref: {dist: norm, loc: 0.1017248094, scale: 0.004}
     proposal: 0.008
     latex: \Omega_{\phi,0}
   rims_alpha_U:
     prior: {min: 0.0, max: 0.10}
-    ref: 0.0613181089
+    ref: {dist: norm, loc: 0.0613181089, scale: 0.003}
     proposal: 0.006
     latex: \alpha_U
   rims_phi_transition:
     prior: {min: 0.0, max: 250.0}
-    ref: 20.091078
+    ref: {dist: norm, loc: 20.091078, scale: 1.5}
     proposal: 6.0
     latex: \phi_t
 
