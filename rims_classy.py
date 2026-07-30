@@ -9,14 +9,16 @@ from cobaya.theories.classy.classy import classy as CobayaClassy
 class RIMSClassy(CobayaClassy):
     """Cobaya CLASS wrapper with deterministic RIMS mass normalization.
 
-    ``rims_phi_ref`` is not a cosmological degree of freedom.  It is the
-    reference field value that enforces m_d(a=1)=m_U.  For each sampled
-    cosmology this wrapper solves phi_ref=phi(z=0) with a background-only
-    CLASS calculation and then runs the requested full calculation with the
-    native RIMS normalization gate enabled.
+    ``rims_phi_ref`` is a derived normalization coordinate, not a sampled
+    cosmological degree of freedom.  The algorithm intentionally matches the
+    previously validated profile/optimization pipeline: run the homogeneous
+    background with the native normalization gate disabled, read both
+    phi(z=0) and rims_mratio(z=0), update phi_ref <- phi(z=0) while the mass
+    ratio differs from unity, then execute the full CLASS calculation with
+    the native normalization gate enabled.
     """
 
-    rims_norm_tolerance: float = 2.0e-9
+    rims_norm_tolerance: float = 3.0e-9
     rims_norm_maxiter: int = 16
     rims_norm_default_ref: float = 4.11730971054
 
@@ -46,24 +48,27 @@ class RIMSClassy(CobayaClassy):
         return bool(value)
 
     @staticmethod
-    def _pick_phi_key(background: dict[str, Any]) -> str:
-        if "phi_scf" in background:
-            return "phi_scf"
-        candidates = [k for k in background if "phi" in k.lower() and "prime" not in k.lower()]
+    def _find_key(background: dict[str, Any], preferred: str, contains: tuple[str, ...]) -> str:
+        if preferred in background:
+            return preferred
+        candidates = []
+        for key in background:
+            low = key.lower().replace(" ", "").replace("_", "")
+            if all(token.lower().replace("_", "") in low for token in contains):
+                candidates.append(key)
         if not candidates:
-            raise RuntimeError(f"Could not identify scalar-field column in CLASS background keys: {list(background)}")
-        candidates.sort(key=lambda k: ("scf" not in k.lower(), len(k)))
+            raise RuntimeError(
+                f"Could not identify background key {preferred!r}; available keys={list(background)}"
+            )
+        candidates.sort(key=len)
         return candidates[0]
 
     @staticmethod
     def _today_index(background: dict[str, Any]) -> int:
-        # Do not assume the Python background arrays inherit the file-output
-        # ordering.  Select the z=0 entry explicitly.
-        zkeys = [k for k in background if k.strip().lower() == "z"]
-        if zkeys:
-            z = np.asarray(background[zkeys[0]], dtype=float)
-            return int(np.nanargmin(np.abs(z)))
-        # CLASS normally returns early->late ordering; retain a safe fallback.
+        for key in background:
+            if key.strip().lower() == "z":
+                z = np.asarray(background[key], dtype=float)
+                return int(np.nanargmin(np.abs(z)))
         return -1
 
     def _normalization_args(self, args: dict[str, Any], phi_ref: float) -> dict[str, Any]:
@@ -83,6 +88,25 @@ class RIMSClassy(CobayaClassy):
             trial.pop(key, None)
         return trial
 
+    def _background_endpoint(self, args: dict[str, Any], phi_ref: float) -> tuple[float, float]:
+        trial = self._normalization_args(args, phi_ref)
+        raw = self.classy_module.Class()
+        try:
+            raw.set(**trial)
+            raw.compute()
+            bg = raw.get_background()
+            idx = self._today_index(bg)
+            phi_key = self._find_key(bg, "phi_scf", ("phi", "scf"))
+            mratio_key = self._find_key(bg, "rims_mratio", ("rims", "mratio"))
+            phi_today = float(np.asarray(bg[phi_key], dtype=float)[idx])
+            mratio_today = float(np.asarray(bg[mratio_key], dtype=float)[idx])
+        finally:
+            try:
+                raw.empty()
+            except Exception:
+                pass
+        return phi_today, mratio_today
+
     def _solve_phi_ref(self, args: dict[str, Any]) -> float:
         if not self._is_rims_enabled(args):
             return self.rims_norm_default_ref
@@ -101,38 +125,22 @@ class RIMSClassy(CobayaClassy):
             round(alpha, 9),
             round(float(args.get("rims_phi_transition", 0.0)), 7),
         )
-        guess = self._rims_last_phi_ref if self._rims_last_signature is not None else self.rims_norm_default_ref
+        pref = self._rims_last_phi_ref if self._rims_last_signature is not None else self.rims_norm_default_ref
 
         for _ in range(int(self.rims_norm_maxiter)):
-            trial = self._normalization_args(args, guess)
-            raw = self.classy_module.Class()
-            try:
-                raw.set(**trial)
-                raw.compute()
-                bg = raw.get_background()
-                key = self._pick_phi_key(bg)
-                idx = self._today_index(bg)
-                phi_today = float(np.asarray(bg[key], dtype=float)[idx])
-            finally:
-                try:
-                    raw.empty()
-                except Exception:
-                    pass
-
-            if not np.isfinite(phi_today):
+            phi_today, mratio_today = self._background_endpoint(args, pref)
+            if not np.isfinite(phi_today) or not np.isfinite(mratio_today):
                 raise self.classy_module.CosmoComputationError(
-                    "RIMS phi_ref normalization returned non-finite phi(z=0)"
+                    "RIMS normalization returned a non-finite background endpoint"
                 )
-
-            if abs(phi_today - guess) <= self.rims_norm_tolerance:
-                self._rims_last_phi_ref = phi_today
+            if abs(mratio_today - 1.0) <= self.rims_norm_tolerance:
+                self._rims_last_phi_ref = pref
                 self._rims_last_signature = signature
-                return phi_today
-
-            guess = 0.25 * guess + 0.75 * phi_today
+                return pref
+            pref = phi_today
 
         raise self.classy_module.CosmoComputationError(
-            f"RIMS phi_ref normalization did not converge after {self.rims_norm_maxiter} iterations; last={guess}"
+            f"RIMS mass normalization did not converge after {self.rims_norm_maxiter} iterations"
         )
 
     def set(self, params_values_dict):
