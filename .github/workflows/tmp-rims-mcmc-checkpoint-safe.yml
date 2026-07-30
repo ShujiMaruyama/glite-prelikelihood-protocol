@@ -1,0 +1,125 @@
+name: temporary RIMS MCMC checkpoint-safe
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  checkpoint:
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [lcdm, scalar]
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      OMP_NUM_THREADS: 1
+      OPENBLAS_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
+      PYTHONUNBUFFERED: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Recover audited inference files
+        env:
+          MODEL: ${{ matrix.model }}
+        run: |
+          mkdir -p mcmc
+          BASE=https://raw.githubusercontent.com/ShujiMaruyama/glite-prelikelihood-protocol/ed4cffb222936a2cfd207204e6df4782e4cce50d
+          curl -fsSL "$BASE/mcmc/$MODEL.yaml" -o "mcmc/$MODEL.yaml"
+          curl -fsSL "$BASE/mcmc/analyze_chains.py" -o mcmc/analyze_chains.py
+          curl -fsSL "$BASE/rims_classy.py" -o rims_classy.py
+
+      - name: Recover pinned RIMS V7 patch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p _patch_artifact
+          gh run download 30425050547 -n rims-v10-turnover-results -D _patch_artifact
+          cp _patch_artifact/rims_class_v3.3.4_v7.patch ./rims_class_v3.3.4_v7.patch
+
+      - name: Checkout and patch CLASS v3.3.4
+        run: |
+          git clone https://github.com/lesgourg/class_public.git class_public
+          cd class_public
+          git checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          git apply ../rims_class_v3.3.4_v7.patch
+          git rev-parse HEAD > ../CLASS_UPSTREAM_COMMIT.txt
+          sha256sum ../rims_class_v3.3.4_v7.patch > ../PATCH_SHA256.txt
+
+      - name: Install CLASS and inference stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openmpi-bin libopenmpi-dev
+          python -m pip install --upgrade pip
+          python -m pip install 'cython<4' numpy scipy pandas pyyaml getdist mpi4py 'cobaya==3.6.2'
+          (cd class_public && python setup.py build)
+          python -m pip install -e ./class_public
+
+      - uses: actions/cache@v4
+        with:
+          path: packages
+          key: cobaya-3.6.2-planck2018-desi-dr2-pantheonplus-v1
+
+      - name: Install likelihood data
+        run: |
+          cobaya-install planck_2018_lowl.TT planck_2018_lowl.EE planck_2018_highl_plik.TTTEEE_lite_native bao.desi_dr2 sn.pantheonplus -p packages
+
+      - name: Validate model configuration
+        env:
+          MODEL: ${{ matrix.model }}
+        run: |
+          cobaya-run "mcmc/$MODEL.yaml" --test
+          rm -rf chains
+
+      - name: Run checkpoint-safe four-chain MCMC
+        env:
+          MODEL: ${{ matrix.model }}
+        run: |
+          set +e
+          mkdir -p chains
+          timeout --signal=TERM --kill-after=60s 300m \
+            mpirun --oversubscribe -np 4 cobaya-run "mcmc/$MODEL.yaml" \
+            2>&1 | tee "mcmc_${MODEL}.log"
+          RC=${PIPESTATUS[0]}
+          echo "$RC" > "MCMC_EXIT_CODE_${MODEL}.txt"
+          if [ "$RC" -eq 0 ]; then
+            echo "MCMC completed before checkpoint timeout"
+          elif [ "$RC" -eq 124 ] || [ "$RC" -eq 143 ]; then
+            echo "Checkpoint timeout reached; preserving chain state"
+          else
+            echo "MCMC exited unexpectedly with code $RC"
+          fi
+          exit 0
+
+      - name: Analyze current chain state
+        if: always()
+        env:
+          MODEL: ${{ matrix.model }}
+        run: |
+          if ls "chains/${MODEL}"*.txt >/dev/null 2>&1; then
+            python mcmc/analyze_chains.py --model "$MODEL" --root "chains/$MODEL" --out "analysis_$MODEL" || true
+          else
+            echo "No chain text files found yet" > "analysis_${MODEL}_missing.txt"
+          fi
+
+      - name: Package checkpoint artifact
+        if: always()
+        env:
+          MODEL: ${{ matrix.model }}
+        run: |
+          mkdir -p artifact
+          cp CLASS_UPSTREAM_COMMIT.txt PATCH_SHA256.txt artifact/ || true
+          cp "mcmc/$MODEL.yaml" mcmc/analyze_chains.py artifact/ || true
+          cp "mcmc_${MODEL}.log" "MCMC_EXIT_CODE_${MODEL}.txt" artifact/ || true
+          cp -r chains artifact/ || true
+          cp -r "analysis_$MODEL" artifact/ || true
+          cp "analysis_${MODEL}_missing.txt" artifact/ || true
+          (cd artifact && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-mcmc-checkpoint-${{ matrix.model }}
+          path: artifact
+          retention-days: 7
