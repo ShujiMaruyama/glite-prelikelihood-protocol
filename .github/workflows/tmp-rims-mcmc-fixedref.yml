@@ -59,7 +59,7 @@ jobs:
         run: |
           set -o pipefail
           python - <<'PY' 2>&1 | tee direct_logposterior.log
-          import json, traceback
+          import json
           from cobaya.yaml import yaml_load_file
           from cobaya.model import get_model
 
