@@ -76,6 +76,13 @@ class RIMSClassy(CobayaClassy):
         trial["rims_phi_ref"] = float(phi_ref)
         trial["rims_require_normalization"] = "no"
         trial["output"] = ""
+        # The normalization solve is deliberately background-only.  CLASS
+        # does not consume the perturbation initial-condition selector when
+        # no perturbation output is requested; leaving ``ic`` here makes the
+        # otherwise valid point fail with "Class did not read ... ic".
+        # The production calculation below still receives the original
+        # ``ic=ad`` through ``args``.
+        trial.pop("ic", None)
         for key in [
             "lensing",
             "l_max_scalars",
