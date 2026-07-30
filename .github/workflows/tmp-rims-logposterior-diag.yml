@@ -1,5 +1,6 @@
 name: temporary RIMS exact logposterior diagnostic
 
+# Synchronize after PR creation so the pull_request workflow fires.
 on:
   pull_request:
     branches: [main]
