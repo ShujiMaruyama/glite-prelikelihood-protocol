@@ -1,10 +1,188 @@
-name: temporary RIMS full MCMC disabled
+name: temporary RIMS matched full MCMC resume-safe
 
 on:
-  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  disabled:
+  mcmc:
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - model: lcdm
+            resume_mode: true
+            prior_artifact: rims-full-mcmc-lcdm
+          - model: scalar
+            resume_mode: true
+            prior_artifact: rims-full-mcmc-scalar
+          - model: rims
+            resume_mode: false
+            prior_artifact: none
     runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      OMP_NUM_THREADS: 1
+      OPENBLAS_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
+      PYTHONUNBUFFERED: 1
+      MODEL: ${{ matrix.model }}
+      RESUME_MODE: ${{ matrix.resume_mode }}
+      PRIOR_ARTIFACT: ${{ matrix.prior_artifact }}
+      PRIOR_RUN_ID: 30503921706
     steps:
-      - run: echo "Full MCMC workflow disabled during one-point diagnostic."
+      - uses: actions/checkout@v4
+
+      - name: Recover pinned RIMS V7 patch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p _patch_artifact
+          gh run download 30425050547 -n rims-v10-turnover-results -D _patch_artifact
+          cp _patch_artifact/rims_class_v3.3.4_v7.patch ./rims_class_v3.3.4_v7.patch
+
+      - name: Checkout and patch CLASS v3.3.4
+        run: |
+          git clone https://github.com/lesgourg/class_public.git class_public
+          cd class_public
+          git checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          git apply ../rims_class_v3.3.4_v7.patch
+          git rev-parse HEAD > ../CLASS_UPSTREAM_COMMIT.txt
+          sha256sum ../rims_class_v3.3.4_v7.patch > ../PATCH_SHA256.txt
+
+      - name: Install CLASS and inference stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openmpi-bin libopenmpi-dev
+          python -m pip install --upgrade pip
+          python -m pip install 'cython<4' numpy scipy pandas pyyaml getdist mpi4py 'cobaya==3.6.2'
+          (cd class_public && python setup.py build)
+          python -m pip install -e ./class_public
+          mpirun --version | head -2
+          python - <<'PY'
+          import cobaya, classy, mpi4py
+          print('Cobaya', cobaya.__version__)
+          print('CLASS', getattr(classy, '__version__', 'unknown'))
+          print('mpi4py', mpi4py.__version__)
+          PY
+
+      - name: Cache cosmology likelihood packages
+        uses: actions/cache@v4
+        with:
+          path: packages
+          key: cobaya-3.6.2-planck2018-desi-dr2-pantheonplus-v1
+
+      - name: Install likelihood data
+        run: |
+          cobaya-install \
+            planck_2018_lowl.TT \
+            planck_2018_lowl.EE \
+            planck_2018_highl_plik.TTTEEE_lite_native \
+            bao.desi_dr2 \
+            sn.pantheonplus \
+            -p packages
+
+      - name: Validate model configuration and finite start
+        run: |
+          cobaya-run "mcmc/${MODEL}.yaml" --test
+          rm -rf chains
+
+      - name: Recover previous chains for resume models
+        if: matrix.resume_mode
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf _prior
+          mkdir -p _prior chains
+          gh run download "$PRIOR_RUN_ID" -n "$PRIOR_ARTIFACT" -D _prior
+          if [ -d _prior/chains ]; then
+            cp -a _prior/chains/. chains/
+          elif [ -d _prior/artifact/chains ]; then
+            cp -a _prior/artifact/chains/. chains/
+          else
+            echo "No chains directory found in recovered artifact"
+            find _prior -maxdepth 4 -type f -print
+            exit 2
+          fi
+          echo "Recovered chain state:"
+          ls -lh chains
+          cat "chains/${MODEL}.checkpoint" || true
+
+      - name: Run or resume four-chain MCMC with checkpoint cutoff
+        run: |
+          set -o pipefail
+          mkdir -p chains
+          set +e
+          if [ "$RESUME_MODE" = "true" ]; then
+            timeout --signal=INT --kill-after=60s 300m \
+              mpirun --oversubscribe -np 4 \
+              cobaya-run "mcmc/${MODEL}.yaml" --resume \
+              2>&1 | tee "mcmc_${MODEL}.log"
+          else
+            timeout --signal=INT --kill-after=60s 300m \
+              mpirun --oversubscribe -np 4 \
+              cobaya-run "mcmc/${MODEL}.yaml" \
+              2>&1 | tee "mcmc_${MODEL}.log"
+          fi
+          rc=${PIPESTATUS[0]}
+          set -e
+          echo "$rc" > "mcmc_${MODEL}_exit_code.txt"
+          echo "MCMC exit code: $rc"
+          cat "chains/${MODEL}.checkpoint" || true
+          # 124 = deliberate timeout checkpoint, 130 = SIGINT propagated.
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] && [ "$rc" -ne 130 ]; then
+            exit "$rc"
+          fi
+
+      - name: Analyze posterior and convergence
+        if: always()
+        run: |
+          n=$(find chains -maxdepth 1 -name "${MODEL}.[1-4].txt" 2>/dev/null | wc -l)
+          echo "chain files: $n"
+          if [ "$n" -ge 2 ]; then
+            python mcmc/analyze_chains.py \
+              --model "$MODEL" \
+              --root "chains/${MODEL}" \
+              --out "analysis_${MODEL}"
+          else
+            echo "Not enough chain files for convergence analysis."
+          fi
+
+      - name: Package MCMC artifact
+        if: always()
+        run: |
+          mkdir -p artifact
+          cp CLASS_UPSTREAM_COMMIT.txt PATCH_SHA256.txt artifact/ || true
+          cp "mcmc/${MODEL}.yaml" artifact/ || true
+          cp rims_classy.py mcmc/analyze_chains.py artifact/ || true
+          cp "mcmc_${MODEL}.log" "mcmc_${MODEL}_exit_code.txt" artifact/ || true
+          cp -r chains artifact/ || true
+          cp -r "analysis_${MODEL}" artifact/ || true
+          python - <<'PY'
+          import json, os, platform, subprocess, sys
+          from pathlib import Path
+          meta = {
+              'python': sys.version,
+              'platform': platform.platform(),
+              'model': os.environ.get('MODEL'),
+              'resume_mode': os.environ.get('RESUME_MODE'),
+              'prior_run_id': os.environ.get('PRIOR_RUN_ID'),
+              'prior_artifact': os.environ.get('PRIOR_ARTIFACT'),
+              'rims_wrapper_fix': 'background-only normalization removes ic; production ic remains ad',
+          }
+          try:
+              meta['pip_freeze'] = subprocess.check_output([sys.executable, '-m', 'pip', 'freeze'], text=True).splitlines()
+          except Exception as exc:
+              meta['pip_freeze_error'] = repr(exc)
+          Path('artifact/RUN_LINEAGE.json').write_text(json.dumps(meta, indent=2))
+          PY
+          (cd artifact && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-full-mcmc-${{ matrix.model }}-continuation
+          path: artifact
+          retention-days: 7
