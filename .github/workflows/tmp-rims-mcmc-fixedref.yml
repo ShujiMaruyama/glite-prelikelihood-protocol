@@ -1,4 +1,4 @@
-name: temporary RIMS exact logposterior diagnostic
+name: temporary RIMS exact logposterior diagnostic v2
 
 on:
   pull_request:
@@ -13,6 +13,7 @@ jobs:
       OPENBLAS_NUM_THREADS: 1
       MKL_NUM_THREADS: 1
       PYTHONUNBUFFERED: 1
+      RIMS_DIAGNOSTIC_REVISION: 2
     steps:
       - uses: actions/checkout@v4
       - name: Recover audited inference files
