@@ -1,13 +1,13 @@
-name: temporary RIMS MCMC fixed-ref init
+name: temporary RIMS exact logposterior diagnostic
 
 on:
   pull_request:
     branches: [main]
 
 jobs:
-  rims:
+  diagnose:
     runs-on: ubuntu-latest
-    timeout-minutes: 330
+    timeout-minutes: 90
     env:
       OMP_NUM_THREADS: 1
       OPENBLAS_NUM_THREADS: 1
@@ -18,47 +18,13 @@ jobs:
 
       - name: Recover audited inference files
         run: |
-          curl -L https://raw.githubusercontent.com/ShujiMaruyama/glite-prelikelihood-protocol/ed4cffb222936a2cfd207204e6df4782e4cce50d/mcmc/rims.yaml -o rims.yaml
-          curl -L https://raw.githubusercontent.com/ShujiMaruyama/glite-prelikelihood-protocol/ed4cffb222936a2cfd207204e6df4782e4cce50d/mcmc/rims_exact.yaml -o rims_exact.yaml
-          curl -L https://raw.githubusercontent.com/ShujiMaruyama/glite-prelikelihood-protocol/ed4cffb222936a2cfd207204e6df4782e4cce50d/mcmc/analyze_chains.py -o analyze_chains.py
-          curl -L https://raw.githubusercontent.com/ShujiMaruyama/glite-prelikelihood-protocol/ed4cffb222936a2cfd207204e6df4782e4cce50d/rims_classy.py -o rims_classy.py
           mkdir -p mcmc
-          mv rims.yaml mcmc/rims.yaml
-          mv rims_exact.yaml mcmc/rims_exact.yaml
-          mv analyze_chains.py mcmc/analyze_chains.py
+          base=https://raw.githubusercontent.com/ShujiMaruyama/glite-prelikelihood-protocol/ed4cffb222936a2cfd207204e6df4782e4cce50d
+          curl -fsSL "$base/rims_classy.py" -o rims_classy.py
+          curl -fsSL "$base/mcmc/rims.yaml" -o mcmc/rims.yaml
+          curl -fsSL "$base/mcmc/rims_exact.yaml" -o mcmc/rims_exact.yaml
 
-      - name: Fix all chain starting coordinates only
-        run: |
-          python - <<'PY'
-          import yaml
-          from pathlib import Path
-          p=Path('mcmc/rims.yaml')
-          d=yaml.safe_load(p.read_text())
-          refs={
-            'H0':68.02239956,
-            'omega_b':0.0224611661,
-            'omega_dm':0.1185203994,
-            'logA':3.0447838321,
-            'n_s':0.9660499,
-            'tau_reio':0.0544,
-            'Omega_scf':0.1017248094,
-            'rims_alpha_U':0.0613181089,
-            'rims_phi_transition':20.091078,
-          }
-          for k,v in refs.items():
-            d['params'][k]['ref']=v
-          d['params']['A_planck']={
-            'prior':{'dist':'norm','loc':1.0,'scale':0.0025},
-            'ref':1.0,
-            'proposal':0.0005,
-            'latex':'A_{\\rm Planck}',
-          }
-          d['output']='chains/rims'
-          p.write_text(yaml.safe_dump(d,sort_keys=False))
-          print(p.read_text())
-          PY
-
-      - name: Recover pinned RIMS V7 patch
+      - name: Recover pinned RIMS patch
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -66,14 +32,12 @@ jobs:
           gh run download 30425050547 -n rims-v10-turnover-results -D _patch_artifact
           cp _patch_artifact/rims_class_v3.3.4_v7.patch ./rims_class_v3.3.4_v7.patch
 
-      - name: Build patched CLASS
+      - name: Build patched CLASS and install inference stack
         run: |
           git clone https://github.com/lesgourg/class_public.git class_public
           cd class_public
           git checkout e85808324f51fc694d12e3ed7439552a3c3f9540
           git apply ../rims_class_v3.3.4_v7.patch
-          git rev-parse HEAD > ../CLASS_UPSTREAM_COMMIT.txt
-          sha256sum ../rims_class_v3.3.4_v7.patch > ../PATCH_SHA256.txt
           cd ..
           sudo apt-get update -qq
           sudo apt-get install -y -qq openmpi-bin libopenmpi-dev
@@ -91,40 +55,60 @@ jobs:
         run: |
           cobaya-install planck_2018_lowl.TT planck_2018_lowl.EE planck_2018_highl_plik.TTTEEE_lite_native bao.desi_dr2 sn.pantheonplus -p packages
 
-      - name: Exact finite-point validation
-        run: |
-          cobaya-run mcmc/rims_exact.yaml --test
-
-      - name: MCMC startup validation
-        run: |
-          cobaya-run mcmc/rims.yaml --test
-          rm -rf chains
-
-      - name: Run four-chain RIMS MCMC
+      - name: Direct MCMC-parameterization logposterior evaluation
         run: |
           set -o pipefail
-          mkdir -p chains
-          mpirun --oversubscribe -np 4 cobaya-run mcmc/rims.yaml 2>&1 | tee mcmc_rims.log
+          python - <<'PY' 2>&1 | tee direct_logposterior.log
+          import json, traceback
+          from cobaya.yaml import yaml_load_file
+          from cobaya.model import get_model
 
-      - name: Analyze posterior
-        if: success()
+          info = yaml_load_file('mcmc/rims.yaml')
+          info.pop('sampler', None)
+          info.pop('output', None)
+          info['debug'] = True
+          info['theory']['rims_classy.RIMSClassy']['stop_at_error'] = True
+          model = get_model(info)
+          point = {
+              'H0': 68.02239956,
+              'omega_b': 0.0224611661,
+              'omega_dm': 0.1185203994,
+              'logA': 3.044783832128357,
+              'n_s': 0.9660499,
+              'tau_reio': 0.0544,
+              'Omega_scf': 0.1017248094,
+              'rims_alpha_U': 0.0613181089,
+              'rims_phi_transition': 20.091078,
+              'A_planck': 1.0,
+          }
+          print('POINT', json.dumps(point, indent=2))
+          try:
+              result = model.logposterior(point, as_dict=True)
+              print('RESULT', result)
+              if not result or result.get('logpost', float('-inf')) == float('-inf'):
+                  raise SystemExit(3)
+          except Exception:
+              traceback.print_exc()
+              raise
+          PY
+
+      - name: Direct fixed-parameter exact evaluator
+        if: always()
         run: |
-          python mcmc/analyze_chains.py --model rims --root chains/rims --out analysis_rims
+          set -o pipefail
+          cobaya-run mcmc/rims_exact.yaml 2>&1 | tee exact_evaluate.log
 
-      - name: Package artifact
+      - name: Package diagnostic
         if: always()
         run: |
           mkdir -p artifact
-          cp CLASS_UPSTREAM_COMMIT.txt PATCH_SHA256.txt artifact/ || true
-          cp mcmc/rims.yaml mcmc/rims_exact.yaml rims_classy.py mcmc/analyze_chains.py artifact/ || true
-          cp mcmc_rims.log artifact/ || true
-          cp -r chains artifact/ || true
-          cp -r analysis_rims artifact/ || true
-          (cd artifact && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+          cp direct_logposterior.log exact_evaluate.log artifact/ 2>/dev/null || true
+          cp mcmc/rims.yaml mcmc/rims_exact.yaml rims_classy.py artifact/ || true
+          (cd artifact && find . -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: rims-full-mcmc-rims-fixedref
+          name: rims-exact-logposterior-diagnostic
           path: artifact
           retention-days: 7
