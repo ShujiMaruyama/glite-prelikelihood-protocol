@@ -1,0 +1,49 @@
+name: temporary RIMS exact smoke
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recover pinned RIMS V7 patch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p _patch_artifact
+          gh run download 30425050547 -n rims-v10-turnover-results -D _patch_artifact
+          cp _patch_artifact/rims_class_v3.3.4_v7.patch ./rims_class_v3.3.4_v7.patch
+      - name: Build patched CLASS
+        run: |
+          git clone https://github.com/lesgourg/class_public.git class_public
+          cd class_public
+          git checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          git apply ../rims_class_v3.3.4_v7.patch
+          python -m pip install --upgrade pip
+          python -m pip install 'cython<4' numpy scipy pandas pyyaml getdist 'cobaya==3.6.2'
+          python setup.py build
+          python -m pip install -e .
+      - uses: actions/cache@v4
+        with:
+          path: packages
+          key: cobaya-3.6.2-planck2018-desi-dr2-pantheonplus-v1
+      - name: Install likelihood data
+        run: |
+          cobaya-install planck_2018_lowl.TT planck_2018_lowl.EE planck_2018_highl_plik.TTTEEE_lite_native bao.desi_dr2 sn.pantheonplus -p packages
+      - name: Evaluate exact RIMS point
+        run: |
+          set -o pipefail
+          cobaya-run mcmc/rims_exact.yaml --test 2>&1 | tee rims_exact_smoke.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-exact-smoke
+          path: |
+            rims_exact_smoke.log
+            mcmc/rims_exact.yaml
+            rims_classy.py
+          retention-days: 7
