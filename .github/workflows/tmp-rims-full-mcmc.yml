@@ -40,14 +40,18 @@ jobs:
 
       - name: Install CLASS and inference stack
         run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openmpi-bin libopenmpi-dev
           python -m pip install --upgrade pip
           python -m pip install 'cython<4' numpy scipy pandas pyyaml getdist mpi4py 'cobaya==3.6.2'
           (cd class_public && python setup.py build)
           python -m pip install -e ./class_public
+          mpirun --version | head -2
           python - <<'PY'
-          import cobaya, classy
+          import cobaya, classy, mpi4py
           print('Cobaya', cobaya.__version__)
           print('CLASS', getattr(classy, '__version__', 'unknown'))
+          print('mpi4py', mpi4py.__version__)
           PY
 
       - name: Cache cosmology likelihood packages
@@ -69,9 +73,11 @@ jobs:
       - name: Validate model configuration
         run: |
           cobaya-run mcmc/${{ matrix.model }}.yaml --test
+          rm -rf chains
 
       - name: Run four-chain MCMC to declared convergence target
         run: |
+          set -o pipefail
           mkdir -p chains
           mpirun --oversubscribe -np 4 cobaya-run mcmc/${{ matrix.model }}.yaml 2>&1 | tee mcmc_${{ matrix.model }}.log
 
