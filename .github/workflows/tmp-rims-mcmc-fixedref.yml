@@ -82,14 +82,10 @@ jobs:
               'A_planck': 1.0,
           }
           print('POINT', json.dumps(point, indent=2))
-          try:
-              result = model.logposterior(point, as_dict=True)
-              print('RESULT', result)
-              if not result or result.get('logpost', float('-inf')) == float('-inf'):
-                  raise SystemExit(3)
-          except Exception:
-              traceback.print_exc()
-              raise
+          result = model.logposterior(point, as_dict=True)
+          print('RESULT', result)
+          if not result or result.get('logpost', float('-inf')) == float('-inf'):
+              raise SystemExit(3)
           PY
 
       - name: Direct fixed-parameter exact evaluator
