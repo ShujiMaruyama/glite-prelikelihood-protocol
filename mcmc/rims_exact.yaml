@@ -49,4 +49,7 @@ params:
   rims_alpha_U: {value: 0.0613181089}
   rims_phi_transition: {value: 20.091078}
 
+sampler:
+  evaluate: null
+
 debug: true
