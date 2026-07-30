@@ -13,7 +13,7 @@ theory:
     python_path: .
     path: ./class_public
     ignore_obsolete: false
-    stop_at_error: false
+    stop_at_error: true
     rims_norm_tolerance: 2.0e-9
     rims_norm_maxiter: 16
     extra_args:
@@ -119,4 +119,4 @@ sampler:
     output_every: 60s
     max_tries: 1000d
 
-debug: false
+debug: true
