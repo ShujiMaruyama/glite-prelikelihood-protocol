@@ -1,0 +1,1 @@
+Trigger PR synchronize event for the temporary reference diagnostic.
