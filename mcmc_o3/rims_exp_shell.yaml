@@ -1,0 +1,107 @@
+packages_path: packages
+output: chains/rims_exp_shell
+
+likelihood:
+  planck_2018_lowl.TT: null
+  planck_2018_lowl.EE: null
+  planck_2018_highl_plik.TTTEEE_lite_native: null
+  bao.desi_dr2: null
+  sn.pantheonplus: null
+
+theory:
+  rims_shell_classy.RIMSShellClassy:
+    python_path: .
+    path: ./class_public
+    ignore_obsolete: false
+    stop_at_error: false
+    rims_norm_tolerance: 3.0e-9
+    rims_norm_maxiter: 16
+    extra_args:
+      gauge: synchronous
+      ic: ad
+      idm_soundspeed: "no"
+      N_ur: 3.044
+      N_ncdm: 0
+      YHe: BBN
+      scf_parameters: "5., 0., 0., 0., 4.44, 0."
+      attractor_ic_scf: "no"
+      scf_tuning_index: 0
+      rims_enabled: "yes"
+      rims_enforce_stability: "yes"
+      rims_stability_tolerance: 1.e-10
+      rims_require_normalization: "yes"
+      rims_normalization_tolerance: 1.e-8
+      rims_subleading_adiabatic_ic: "yes"
+      rims_regular_standard_ic: "yes"
+      recombination: HYREC
+      reio_parametrization: reio_camb
+      k_pivot: 0.05
+      non_linear: none
+
+params:
+  H0:
+    prior: {min: 55.0, max: 82.0}
+    ref: {dist: norm, loc: 68.02, scale: 0.20}
+    proposal: 0.35
+  omega_b:
+    prior: {min: 0.019, max: 0.026}
+    ref: {dist: norm, loc: 0.02246, scale: 0.00005}
+    proposal: 0.00012
+  omega_dm:
+    prior: {min: 0.090, max: 0.155}
+    ref: {dist: norm, loc: 0.11852, scale: 0.0005}
+    proposal: 0.0012
+    drop: true
+  omega_cdm:
+    value: "lambda omega_dm: 0.1*omega_dm"
+  omega_idm:
+    value: "lambda omega_dm: 0.9*omega_dm"
+  logA:
+    prior: {min: 2.75, max: 3.35}
+    ref: {dist: norm, loc: 3.0448, scale: 0.003}
+    proposal: 0.008
+    drop: true
+  A_s:
+    value: "lambda logA: 1e-10*np.exp(logA)"
+  n_s:
+    prior: {min: 0.90, max: 1.05}
+    ref: {dist: norm, loc: 0.96605, scale: 0.0015}
+    proposal: 0.003
+  tau_reio:
+    prior: {min: 0.020, max: 0.120}
+    ref: {dist: norm, loc: 0.0544, scale: 0.002}
+    proposal: 0.005
+
+  Omega_scf:
+    prior: {min: 0.001, max: 0.18}
+    ref: {dist: norm, loc: 0.09436, scale: 0.006}
+    proposal: 0.010
+  rims_alpha_U:
+    prior: {min: 0.0001, max: 0.12}
+    ref: {dist: norm, loc: 0.07839, scale: 0.003}
+    proposal: 0.005
+  rims_shell_u_i:
+    prior: {min: -2.44234703537, max: 1.09861228867}
+    ref: {dist: norm, loc: -0.769146353794, scale: 0.08}
+    proposal: 0.18
+  rims_s_i:
+    derived: "lambda rims_shell_u_i: 1/(1+np.exp(-rims_shell_u_i))"
+  rims_phi_transition:
+    derived: "lambda rims_alpha_U, rims_shell_u_i: 4.44-rims_shell_u_i/(2*rims_alpha_U)"
+
+sampler:
+  mcmc:
+    max_samples: 50000
+    Rminus1_stop: 0.01
+    Rminus1_cl_stop: 0.15
+    Rminus1_cl_level: 0.95
+    learn_proposal: true
+    learn_every: 40d
+    proposal_scale: 2.4
+    oversample_power: 0.4
+    oversample_thin: true
+    measure_speeds: true
+    output_every: 60s
+    max_tries: 1000d
+
+debug: false
