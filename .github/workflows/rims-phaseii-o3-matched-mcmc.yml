@@ -1,4 +1,4 @@
-name: RIMS Phase II O3 matched production MCMC continuation-3
+name: RIMS Phase II O3 matched production MCMC continuation-4 focused
 
 on:
   pull_request:
@@ -15,20 +15,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Audit frozen O3 payload and continuation-3 contract
+      - name: Audit frozen O3 payload and continuation-4 contract
         run: |
           python -m pip install --disable-pip-version-check pyyaml
           python -m py_compile rims_shell_classy.py mcmc_o3/analyze_o3_chains.py
           python - <<'PY'
           import json, pathlib, yaml
-          for f in ['mcmc_o3/lcdm.yaml','mcmc_o3/scalar_exp.yaml','mcmc_o3/rims_exp_shell.yaml']:
+          for f in ['mcmc_o3/scalar_exp.yaml','mcmc_o3/rims_exp_shell.yaml']:
               yaml.safe_load(pathlib.Path(f).read_text())
               print('YAML PASS', f)
           card=json.loads(pathlib.Path('mcmc_o3/O3_RUN_CARD.json').read_text())
           assert card['evidence'].startswith('LOCKED')
           print('Run-card PASS')
-          print('Continuation source run: 32210215944')
-          print('Continuation source artifacts: rims-phaseii-o3-{model}-c2')
+          print('LambdaCDM frozen at c3: GetDist R-1=0.009025481710496091, min ESS=1126.0428873008107')
+          print('Continuation source run: 32320152846')
+          print('Continuation source artifacts: rims-phaseii-o3-{scalar|rims}-c3')
           PY
           cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > /tmp/V18_23_LOCAL_RIMS_PATCH.diff
           cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > /tmp/V18_23_TO_V18_29.patch
@@ -41,12 +42,9 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.head_ref == 'phaseii-o3-geometry-mcmc-20260818'
     strategy:
       fail-fast: false
-      max-parallel: 3
+      max-parallel: 2
       matrix:
         include:
-          - model: lcdm
-            yaml: lcdm
-            chain_root: lcdm
           - model: scalar
             yaml: scalar_exp
             chain_root: scalar
@@ -63,9 +61,9 @@ jobs:
       MODEL: ${{ matrix.model }}
       YAML: ${{ matrix.yaml }}
       CHAIN_ROOT: ${{ matrix.chain_root }}
-      PRIOR_RUN_ID: 32210215944
-      PRIOR_SUFFIX: c2
-      CONTINUATION_INDEX: 3
+      PRIOR_RUN_ID: 32320152846
+      PRIOR_SUFFIX: c3
+      CONTINUATION_INDEX: 4
     steps:
       - uses: actions/checkout@v4
 
@@ -99,12 +97,6 @@ jobs:
           python -m pip install 'cython<4' numpy scipy pandas pyyaml getdist mpi4py 'cobaya==3.6.2'
           (cd class_public && python setup.py build)
           python -m pip install -e ./class_public
-          python - <<'PY'
-          import cobaya, classy, mpi4py
-          print('Cobaya', cobaya.__version__)
-          print('CLASS', getattr(classy, '__version__', 'unknown'))
-          print('mpi4py', mpi4py.__version__)
-          PY
 
       - name: Cache matched likelihood packages
         uses: actions/cache@v4
@@ -127,7 +119,7 @@ jobs:
           cobaya-run "mcmc_o3/${YAML}.yaml" --test
           rm -rf chains
 
-      - name: Recover audited continuation-2 chains
+      - name: Recover audited continuation-3 chains
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -142,16 +134,14 @@ jobs:
           test -s "chains/${CHAIN_ROOT}.covmat"
           n=$(find chains -maxdepth 1 -name "${CHAIN_ROOT}.[1-4].txt" | wc -l)
           test "$n" -eq 4
-          echo "Recovered four continuation-2 chains for ${MODEL}:"
+          echo "Recovered four continuation-3 chains for ${MODEL}:"
           wc -l chains/${CHAIN_ROOT}.[1-4].txt
-          echo "Prior checkpoint:"
-          cat "chains/${CHAIN_ROOT}.checkpoint"
           if [ -f "_prior/analysis_${MODEL}/mcmc_summary.json" ]; then
             echo "Prior convergence summary:"
             cat "_prior/analysis_${MODEL}/mcmc_summary.json"
           fi
 
-      - name: Resume four-chain matched MCMC with checkpoint cutoff
+      - name: Resume focused four-chain MCMC with checkpoint cutoff
         run: |
           set -o pipefail
           set +e
@@ -171,17 +161,14 @@ jobs:
         if: always()
         run: |
           n=$(find chains -maxdepth 1 -name "${CHAIN_ROOT}.[1-4].txt" 2>/dev/null | wc -l)
-          echo "chain files: $n"
           if [ "$n" -ge 2 ]; then
             python mcmc_o3/analyze_o3_chains.py \
               --model "$MODEL" \
               --root "chains/${CHAIN_ROOT}" \
               --out "analysis_${MODEL}"
-          else
-            echo "Not enough chain files for convergence analysis."
           fi
 
-      - name: Package auditable continuation-3 checkpoint
+      - name: Package auditable continuation-4 checkpoint
         if: always()
         run: |
           mkdir -p artifact
@@ -195,17 +182,24 @@ jobs:
           python - <<'PY'
           import json, os, platform, subprocess, sys
           from pathlib import Path
-          meta={'python':sys.version,'platform':platform.platform(),'model':os.environ['MODEL'],
-                'continuation_index':int(os.environ['CONTINUATION_INDEX']),
-                'continuation_of_run':int(os.environ['PRIOR_RUN_ID']),
-                'continuation_source_suffix':os.environ['PRIOR_SUFFIX'],
-                'class_upstream':'e85808324f51fc694d12e3ed7439552a3c3f9540',
-                'v7_patch_sha256':'6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74',
-                'v18_23_to_v18_29_patch_sha256':'c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc',
-                'acceptance':'R-1 < 0.01 AND minimum headline ESS >= 1000 for all matched models',
-                'claim_boundary':'Checkpoint only until all matched models pass; no Bayes factor or preference statement.'}
-          try: meta['pip_freeze']=subprocess.check_output([sys.executable,'-m','pip','freeze'],text=True).splitlines()
-          except Exception as exc: meta['pip_freeze_error']=repr(exc)
+          meta={
+            'python':sys.version,
+            'platform':platform.platform(),
+            'model':os.environ['MODEL'],
+            'continuation_index':int(os.environ['CONTINUATION_INDEX']),
+            'continuation_of_run':int(os.environ['PRIOR_RUN_ID']),
+            'continuation_source_suffix':os.environ['PRIOR_SUFFIX'],
+            'lcdm_frozen_c3_gate':{'Rminus1':0.009025481710496091,'min_ESS':1126.0428873008107,'accepted':True},
+            'class_upstream':'e85808324f51fc694d12e3ed7439552a3c3f9540',
+            'v7_patch_sha256':'6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74',
+            'v18_23_to_v18_29_patch_sha256':'c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc',
+            'acceptance':'R-1 < 0.01 AND minimum headline ESS >= 1000 for all matched models',
+            'claim_boundary':'No Bayes factor or model preference until scalar and RIMS also pass the frozen production gate.'
+          }
+          try:
+            meta['pip_freeze']=subprocess.check_output([sys.executable,'-m','pip','freeze'],text=True).splitlines()
+          except Exception as exc:
+            meta['pip_freeze_error']=repr(exc)
           Path('artifact/RUN_LINEAGE.json').write_text(json.dumps(meta,indent=2))
           PY
           (cd artifact && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
@@ -213,6 +207,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: rims-phaseii-o3-${{ matrix.model }}-c3
+          name: rims-phaseii-o3-${{ matrix.model }}-c4
           path: artifact
           retention-days: 30
