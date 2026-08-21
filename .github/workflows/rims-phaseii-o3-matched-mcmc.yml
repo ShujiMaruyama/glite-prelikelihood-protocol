@@ -1,4 +1,4 @@
-name: RIMS Phase II O3 matched production MCMC continuation-4 focused
+name: RIMS Phase II O3 matched production MCMC continuation-5 mixing-tuned
 
 on:
   pull_request:
@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Audit frozen O3 payload and continuation-4 contract
+      - name: Audit frozen target and continuation-5 mixing contract
         run: |
           python -m pip install --disable-pip-version-check pyyaml
           python -m py_compile rims_shell_classy.py mcmc_o3/analyze_o3_chains.py
@@ -27,9 +27,13 @@ jobs:
           card=json.loads(pathlib.Path('mcmc_o3/O3_RUN_CARD.json').read_text())
           assert card['evidence'].startswith('LOCKED')
           print('Run-card PASS')
+          print('Likelihood/prior/model target: FROZEN')
           print('LambdaCDM frozen at c3: GetDist R-1=0.009025481710496091, min ESS=1126.0428873008107')
-          print('Continuation source run: 32320152846')
-          print('Continuation source artifacts: rims-phaseii-o3-{scalar|rims}-c3')
+          print('c4 scalar: GetDist R-1=0.024160662788738407, min ESS=244.08831906658432')
+          print('c4 RIMS: GetDist R-1=0.12360931593745476, min ESS=104.56511679194001')
+          print('c4 acceptance was high (~0.76 scalar, ~0.84 RIMS); c5 changes proposal covariance only.')
+          print('Continuation source run: 32340616542')
+          print('Continuation source artifacts: rims-phaseii-o3-{scalar|rims}-c4')
           PY
           cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > /tmp/V18_23_LOCAL_RIMS_PATCH.diff
           cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > /tmp/V18_23_TO_V18_29.patch
@@ -48,9 +52,11 @@ jobs:
           - model: scalar
             yaml: scalar_exp
             chain_root: scalar
+            covmat_variance_scale: 2.25
           - model: rims
             yaml: rims_exp_shell
             chain_root: rims_exp_shell
+            covmat_variance_scale: 4.0
     runs-on: ubuntu-latest
     timeout-minutes: 330
     env:
@@ -61,9 +67,10 @@ jobs:
       MODEL: ${{ matrix.model }}
       YAML: ${{ matrix.yaml }}
       CHAIN_ROOT: ${{ matrix.chain_root }}
-      PRIOR_RUN_ID: 32320152846
-      PRIOR_SUFFIX: c3
-      CONTINUATION_INDEX: 4
+      COVMAT_VARIANCE_SCALE: ${{ matrix.covmat_variance_scale }}
+      PRIOR_RUN_ID: 32340616542
+      PRIOR_SUFFIX: c4
+      CONTINUATION_INDEX: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -119,7 +126,7 @@ jobs:
           cobaya-run "mcmc_o3/${YAML}.yaml" --test
           rm -rf chains
 
-      - name: Recover audited continuation-3 chains
+      - name: Recover audited continuation-4 chains
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -134,14 +141,54 @@ jobs:
           test -s "chains/${CHAIN_ROOT}.covmat"
           n=$(find chains -maxdepth 1 -name "${CHAIN_ROOT}.[1-4].txt" | wc -l)
           test "$n" -eq 4
-          echo "Recovered four continuation-3 chains for ${MODEL}:"
+          echo "Recovered four continuation-4 chains for ${MODEL}:"
           wc -l chains/${CHAIN_ROOT}.[1-4].txt
           if [ -f "_prior/analysis_${MODEL}/mcmc_summary.json" ]; then
             echo "Prior convergence summary:"
             cat "_prior/analysis_${MODEL}/mcmc_summary.json"
           fi
 
-      - name: Resume focused four-chain MCMC with checkpoint cutoff
+      - name: Inflate learned proposal covariance without changing target
+        run: |
+          set -euo pipefail
+          cp "chains/${CHAIN_ROOT}.covmat" "chains/${CHAIN_ROOT}.covmat.pre_c5"
+          sha256sum "chains/${CHAIN_ROOT}.covmat.pre_c5" > "covmat_${MODEL}_pre_c5.sha256"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import numpy as np
+          root=os.environ['CHAIN_ROOT']
+          factor=float(os.environ['COVMAT_VARIANCE_SCALE'])
+          p=Path('chains')/(root+'.covmat')
+          lines=p.read_text().splitlines()
+          header=lines[0]
+          mat=np.loadtxt(lines[1:])
+          if mat.ndim != 2 or mat.shape[0] != mat.shape[1]:
+              raise SystemExit(f'Non-square covmat: {mat.shape}')
+          if not np.all(np.isfinite(mat)):
+              raise SystemExit('Non-finite covmat')
+          eig=np.linalg.eigvalsh((mat+mat.T)/2)
+          if eig.min() <= 0:
+              raise SystemExit(f'Covmat not positive definite before scaling: min eig={eig.min()}')
+          mat2=mat*factor
+          eig2=np.linalg.eigvalsh((mat2+mat2.T)/2)
+          with p.open('w') as f:
+              f.write(header+'\n')
+              np.savetxt(f,mat2,fmt='%.18e')
+          Path(f'covmat_{os.environ["MODEL"]}_mixing_note.txt').write_text(
+              f'target_distribution_changed=false\n'
+              f'proposal_covariance_variance_scale={factor}\n'
+              f'proposal_std_scale={factor**0.5}\n'
+              f'min_eigenvalue_before={eig.min():.18e}\n'
+              f'min_eigenvalue_after={eig2.min():.18e}\n'
+              'rationale=c4 acceptance was excessively high; increase symmetric random-walk travel per accepted step.\n'
+          )
+          print(Path(f'covmat_{os.environ["MODEL"]}_mixing_note.txt').read_text())
+          PY
+          sha256sum "chains/${CHAIN_ROOT}.covmat" > "covmat_${MODEL}_c5.sha256"
+          cat "covmat_${MODEL}_pre_c5.sha256" "covmat_${MODEL}_c5.sha256"
+
+      - name: Resume mixing-tuned four-chain MCMC with checkpoint cutoff
         run: |
           set -o pipefail
           set +e
@@ -168,7 +215,32 @@ jobs:
               --out "analysis_${MODEL}"
           fi
 
-      - name: Package auditable continuation-4 checkpoint
+      - name: Audit c5 acceptance and mixing response
+        if: always()
+        run: |
+          python - <<'PY'
+          import os,re,json
+          from pathlib import Path
+          model=os.environ['MODEL']
+          p=Path(f'o3_{model}_c5.log')
+          text=p.read_text(errors='replace') if p.exists() else ''
+          acc=[float(x) for x in re.findall(r'Acceptance rate:\s*([0-9.]+)',text)]
+          rr=[float(x) for x in re.findall(r'Convergence of means: R-1 =\s*([0-9.eE+-]+)',text)]
+          out={
+              'model':model,
+              'proposal_covariance_variance_scale':float(os.environ['COVMAT_VARIANCE_SCALE']),
+              'acceptance_first':acc[0] if acc else None,
+              'acceptance_last':acc[-1] if acc else None,
+              'acceptance_min':min(acc) if acc else None,
+              'acceptance_max':max(acc) if acc else None,
+              'sampler_Rminus1_last_logged':rr[-1] if rr else None,
+              'target_distribution_changed':False
+          }
+          Path(f'c5_mixing_audit_{model}.json').write_text(json.dumps(out,indent=2))
+          print(json.dumps(out,indent=2))
+          PY
+
+      - name: Package auditable continuation-5 checkpoint
         if: always()
         run: |
           mkdir -p artifact
@@ -177,6 +249,7 @@ jobs:
           cp "mcmc_o3/${YAML}.yaml" mcmc_o3/O3_RUN_CARD.json artifact/ || true
           cp rims_shell_classy.py mcmc_o3/analyze_o3_chains.py artifact/ || true
           cp "o3_${MODEL}_c${CONTINUATION_INDEX}.log" "o3_${MODEL}_c${CONTINUATION_INDEX}_exit_code.txt" artifact/ || true
+          cp covmat_${MODEL}_pre_c5.sha256 covmat_${MODEL}_c5.sha256 covmat_${MODEL}_mixing_note.txt c5_mixing_audit_${MODEL}.json artifact/ || true
           cp -r chains artifact/ || true
           cp -r "analysis_${MODEL}" artifact/ || true
           python - <<'PY'
@@ -189,11 +262,13 @@ jobs:
             'continuation_index':int(os.environ['CONTINUATION_INDEX']),
             'continuation_of_run':int(os.environ['PRIOR_RUN_ID']),
             'continuation_source_suffix':os.environ['PRIOR_SUFFIX'],
+            'proposal_covariance_variance_scale':float(os.environ['COVMAT_VARIANCE_SCALE']),
+            'target_distribution_changed':False,
             'lcdm_frozen_c3_gate':{'Rminus1':0.009025481710496091,'min_ESS':1126.0428873008107,'accepted':True},
             'class_upstream':'e85808324f51fc694d12e3ed7439552a3c3f9540',
             'v7_patch_sha256':'6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74',
             'v18_23_to_v18_29_patch_sha256':'c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc',
-            'acceptance':'R-1 < 0.01 AND minimum headline ESS >= 1000 for all matched models',
+            'acceptance_gate':'R-1 < 0.01 AND minimum headline ESS >= 1000 for all matched models',
             'claim_boundary':'No Bayes factor or model preference until scalar and RIMS also pass the frozen production gate.'
           }
           try:
@@ -207,6 +282,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: rims-phaseii-o3-${{ matrix.model }}-c4
+          name: rims-phaseii-o3-${{ matrix.model }}-c5
           path: artifact
           retention-days: 30
