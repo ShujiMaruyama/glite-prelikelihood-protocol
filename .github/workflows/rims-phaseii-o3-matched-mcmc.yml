@@ -26,8 +26,10 @@ jobs:
             echo "execute=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          msg="$(git log -1 --pretty=%B)"
-          printf 'Head commit message: %s\n' "$msg"
+          head_sha="${{ github.event.pull_request.head.sha }}"
+          git fetch --no-tags --depth=1 origin "$head_sha" || true
+          msg="$(git show -s --format=%B "$head_sha")"
+          printf 'PR head sha: %s\nHead commit message: %s\n' "$head_sha" "$msg"
           if grep -Fq '[RIMS-C6-RUN]' <<<"$msg"; then
             echo "execute=true" >> "$GITHUB_OUTPUT"
           else
