@@ -1,0 +1,300 @@
+name: RIMS Phase II O3 c6 resume-safe segmented MCMC
+
+on:
+  workflow_dispatch:
+    inputs:
+      segment_minutes:
+        description: "Sampler walltime per continuation segment"
+        required: true
+        default: "90"
+      continuation_index:
+        description: "Continuation label"
+        required: true
+        default: "6"
+      scalar_prior_run_id:
+        description: "Run containing scalar prior artifact"
+        required: true
+        default: "32453135508"
+      scalar_prior_suffix:
+        description: "Scalar prior artifact suffix"
+        required: true
+        default: "c5"
+      rims_prior_run_id:
+        description: "Run containing RIMS prior artifact"
+        required: true
+        default: "32340616542"
+      rims_prior_suffix:
+        description: "RIMS prior artifact suffix; c4 triggers one-time c5 covariance inflation"
+        required: true
+        default: "c4"
+
+concurrency:
+  group: rims-phaseii-o3-resume-safe-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  config-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit frozen target and resume-safe contract
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check pyyaml
+          python -m py_compile rims_shell_classy.py mcmc_o3/analyze_o3_chains.py
+          python - <<'PY'
+          import json, pathlib, yaml
+          for f in ['mcmc_o3/scalar_exp.yaml','mcmc_o3/rims_exp_shell.yaml']:
+              yaml.safe_load(pathlib.Path(f).read_text())
+              print('YAML PASS', f)
+          card=json.loads(pathlib.Path('mcmc_o3/O3_RUN_CARD.json').read_text())
+          assert card['evidence'].startswith('LOCKED')
+          print('Run-card PASS')
+          print('Target distribution: FROZEN')
+          print('Production gate: GetDist R-1 < 0.01 AND minimum headline ESS >= 1000 for all matched models')
+          print('Timeout/failure artifacts remain checkpoints until the production gate passes.')
+          PY
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > /tmp/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > /tmp/V18_23_TO_V18_29.patch
+          test "$(sha256sum /tmp/V18_23_LOCAL_RIMS_PATCH.diff | awk '{print $1}')" = "6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74"
+          test "$(sha256sum /tmp/V18_23_TO_V18_29.patch | awk '{print $1}')" = "c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc"
+
+  mcmc:
+    needs: config-audit
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - model: scalar
+            yaml: scalar_exp
+            chain_root: scalar
+            prior_run_id: ${{ inputs.scalar_prior_run_id }}
+            prior_suffix: ${{ inputs.scalar_prior_suffix }}
+          - model: rims
+            yaml: rims_exp_shell
+            chain_root: rims_exp_shell
+            prior_run_id: ${{ inputs.rims_prior_run_id }}
+            prior_suffix: ${{ inputs.rims_prior_suffix }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      OMP_NUM_THREADS: 1
+      OPENBLAS_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
+      PYTHONUNBUFFERED: 1
+      MODEL: ${{ matrix.model }}
+      YAML: ${{ matrix.yaml }}
+      CHAIN_ROOT: ${{ matrix.chain_root }}
+      PRIOR_RUN_ID: ${{ matrix.prior_run_id }}
+      PRIOR_SUFFIX: ${{ matrix.prior_suffix }}
+      CONTINUATION_INDEX: ${{ inputs.continuation_index }}
+      SEGMENT_MINUTES: ${{ inputs.segment_minutes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct pinned RIMS V18.29 CLASS source
+        run: |
+          set -euo pipefail
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > rims_o3_patch/V18_23_TO_V18_29.patch
+          test "$(sha256sum rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff | awk '{print $1}')" = "6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74"
+          test "$(sha256sum rims_o3_patch/V18_23_TO_V18_29.patch | awk '{print $1}')" = "c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc"
+          git clone https://github.com/lesgourg/class_public.git class_public
+          cd class_public
+          git checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          git apply ../rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          git apply ../rims_o3_patch/V18_23_TO_V18_29.patch
+          git diff --check
+          test "$(sha256sum include/background.h | awk '{print $1}')" = "e8e81760366064a2155e9f7678fe83cd470d3c9ce0508d2ea0712ef18ca15e11"
+          test "$(sha256sum include/perturbations.h | awk '{print $1}')" = "bd6dbd4c1b90114b51c0f421fb9dae051df3c44666d0ba77f40f8af60818c2ea"
+          test "$(sha256sum source/background.c | awk '{print $1}')" = "28ed80d0b006990b983f3971f58d302858cfdcc7ee72156f1fe0668eee3af661"
+          test "$(sha256sum source/input.c | awk '{print $1}')" = "15e7360a997d957ac772e3cc48be42311371c73b1fc92d6ad3df5f1eae642c63"
+          test "$(sha256sum source/perturbations.c | awk '{print $1}')" = "928857ad4f19497d1ff07dae2df89c12659d7df2ea9aec0b70a20afb5eb842af"
+          test "$(sha256sum source/primordial.c | awk '{print $1}')" = "f24482c65a3495d637ebd87e401e7a81750989fa0be79180fe301ceb1077a34c"
+          git rev-parse HEAD > ../CLASS_UPSTREAM_COMMIT.txt
+          git diff > ../RIMS_V18_29_RECONSTRUCTED.diff
+
+      - name: Install CLASS and inference stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openmpi-bin libopenmpi-dev
+          python -m pip install --upgrade pip
+          python -m pip install 'cython<4' numpy scipy pandas pyyaml getdist mpi4py 'cobaya==3.6.2'
+          (cd class_public && python setup.py build)
+          python -m pip install -e ./class_public
+
+      - name: Cache matched likelihood packages
+        uses: actions/cache@v4
+        with:
+          path: packages
+          key: cobaya-3.6.2-planck2018-desi-dr2-pantheonplus-o3-v2
+
+      - name: Install or verify matched likelihood data
+        run: |
+          cobaya-install \
+            planck_2018_lowl.TT \
+            planck_2018_lowl.EE \
+            planck_2018_highl_plik.TTTEEE_lite_native \
+            bao.desi_dr2 \
+            sn.pantheonplus \
+            -p packages
+
+      - name: Theory plus likelihood preflight
+        run: |
+          cobaya-run "mcmc_o3/${YAML}.yaml" --test
+          rm -rf chains
+
+      - name: Recover audited prior chains
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf _prior chains
+          mkdir -p _prior chains
+          gh run download "$PRIOR_RUN_ID" -n "rims-phaseii-o3-${MODEL}-${PRIOR_SUFFIX}" -D _prior
+          test -d _prior/chains
+          cp -a _prior/chains/. chains/
+          rm -f "chains/${CHAIN_ROOT}.input.yaml.locked"
+          test -s "chains/${CHAIN_ROOT}.checkpoint"
+          test -s "chains/${CHAIN_ROOT}.covmat"
+          n=$(find chains -maxdepth 1 -name "${CHAIN_ROOT}.[1-4].txt" | wc -l)
+          test "$n" -eq 4
+          echo "Recovered ${MODEL} from run=${PRIOR_RUN_ID}, suffix=${PRIOR_SUFFIX}"
+          wc -l chains/${CHAIN_ROOT}.[1-4].txt
+          sha256sum chains/${CHAIN_ROOT}.checkpoint chains/${CHAIN_ROOT}.covmat > prior_${MODEL}_checkpoint_covmat.sha256
+
+      - name: Apply c5 proposal inflation exactly once when rebuilding RIMS from c4
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import numpy as np
+          model=os.environ['MODEL']
+          suffix=os.environ['PRIOR_SUFFIX']
+          root=os.environ['CHAIN_ROOT']
+          p=Path('chains')/(root+'.covmat')
+          before=p.read_bytes()
+          factor=4.0 if (model=='rims' and suffix=='c4') else 1.0
+          if factor != 1.0:
+              lines=p.read_text().splitlines()
+              header=lines[0]
+              mat=np.loadtxt(lines[1:])
+              if mat.ndim != 2 or mat.shape[0] != mat.shape[1]:
+                  raise SystemExit(f'Non-square covmat: {mat.shape}')
+              eig=np.linalg.eigvalsh((mat+mat.T)/2)
+              if eig.min() <= 0 or not np.all(np.isfinite(mat)):
+                  raise SystemExit('Invalid c4 covariance matrix')
+              mat*=factor
+              with p.open('w') as f:
+                  f.write(header+'\n')
+                  np.savetxt(f,mat,fmt='%.18e')
+          note=Path(f'proposal_resume_note_{model}.txt')
+          note.write_text(
+              f'model={model}\nprior_suffix={suffix}\nvariance_scale_applied_now={factor}\n'
+              f'target_distribution_changed=false\n'
+              'rule=RIMS c4 fallback receives the c5 variance inflation once; c5-or-later artifacts are never inflated again.\n'
+          )
+          print(note.read_text())
+          PY
+          sha256sum chains/${CHAIN_ROOT}.covmat > resumed_${MODEL}_covmat.sha256
+
+      - name: Resume four-chain MCMC for bounded segment without losing checkpoint
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          set +e
+          timeout --signal=INT --kill-after=60s "${SEGMENT_MINUTES}m" \
+            mpirun --oversubscribe -np 4 \
+            cobaya-run "mcmc_o3/${YAML}.yaml" --resume \
+            2>&1 | tee "o3_${MODEL}_c${CONTINUATION_INDEX}.log"
+          rc=${PIPESTATUS[0]}
+          set -e
+          echo "$rc" > "o3_${MODEL}_c${CONTINUATION_INDEX}_exit_code.txt"
+          if [ -s "chains/${CHAIN_ROOT}.checkpoint" ]; then
+            cp "chains/${CHAIN_ROOT}.checkpoint" "checkpoint_${MODEL}_after_segment.txt"
+          fi
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] && [ "$rc" -ne 130 ]; then
+            echo "unexpected_sampler_exit=$rc" > SAMPLER_FATAL_${MODEL}.flag
+          fi
+          exit 0
+
+      - name: Analyze convergence checkpoint
+        if: ${{ always() }}
+        run: |
+          n=$(find chains -maxdepth 1 -name "${CHAIN_ROOT}.[1-4].txt" 2>/dev/null | wc -l)
+          if [ "$n" -ge 2 ]; then
+            python mcmc_o3/analyze_o3_chains.py \
+              --model "$MODEL" \
+              --root "chains/${CHAIN_ROOT}" \
+              --out "analysis_${MODEL}" || true
+          fi
+
+      - name: Package resume-safe checkpoint
+        if: ${{ always() }}
+        run: |
+          set +e
+          rm -rf artifact
+          mkdir -p artifact
+          cp CLASS_UPSTREAM_COMMIT.txt RIMS_V18_29_RECONSTRUCTED.diff artifact/
+          cp rims_o3_patch/SOURCE_HASH_CONTRACT.json artifact/
+          cp "mcmc_o3/${YAML}.yaml" mcmc_o3/O3_RUN_CARD.json artifact/
+          cp rims_shell_classy.py mcmc_o3/analyze_o3_chains.py artifact/
+          cp "o3_${MODEL}_c${CONTINUATION_INDEX}.log" "o3_${MODEL}_c${CONTINUATION_INDEX}_exit_code.txt" artifact/
+          cp prior_${MODEL}_checkpoint_covmat.sha256 resumed_${MODEL}_covmat.sha256 proposal_resume_note_${MODEL}.txt artifact/
+          cp checkpoint_${MODEL}_after_segment.txt artifact/ 2>/dev/null
+          cp SAMPLER_FATAL_${MODEL}.flag artifact/ 2>/dev/null
+          cp -r chains artifact/
+          cp -r "analysis_${MODEL}" artifact/ 2>/dev/null
+          python - <<'PY'
+          import json, os, platform, subprocess, sys
+          from pathlib import Path
+          model=os.environ['MODEL']
+          rcfile=Path(f'o3_{model}_c{os.environ["CONTINUATION_INDEX"]}_exit_code.txt')
+          rc=int(rcfile.read_text().strip()) if rcfile.exists() else None
+          meta={
+            'schema':'rims-phaseii-o3-resume-safe-v1',
+            'python':sys.version,
+            'platform':platform.platform(),
+            'model':model,
+            'continuation_index':os.environ['CONTINUATION_INDEX'],
+            'segment_minutes':int(os.environ['SEGMENT_MINUTES']),
+            'continuation_of_run':int(os.environ['PRIOR_RUN_ID']),
+            'continuation_source_suffix':os.environ['PRIOR_SUFFIX'],
+            'sampler_exit_code':rc,
+            'sampler_exit_is_expected_checkpoint':rc in (0,124,130),
+            'target_distribution_changed':False,
+            'production_gate':'GetDist R-1 < 0.01 AND minimum headline ESS >= 1000 for all matched models',
+            'claim_boundary':'Checkpoint only unless the frozen production gate passes. No Bayes factor/evidence or model preference from incomplete chains.',
+            'source_contract':{
+              'class_upstream_commit':'e85808324f51fc694d12e3ed7439552a3c3f9540',
+              'v18_23_patch_sha256':'6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74',
+              'v18_29_delta_sha256':'c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc'
+            }
+          }
+          try:
+            meta['pip_freeze']=subprocess.check_output([sys.executable,'-m','pip','freeze'],text=True).splitlines()
+          except Exception as exc:
+            meta['pip_freeze_error']=repr(exc)
+          Path('artifact/RUN_LINEAGE.json').write_text(json.dumps(meta,indent=2))
+          PY
+          (cd artifact && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+          set -e
+
+      - name: Upload resume-safe checkpoint artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rims-phaseii-o3-${{ matrix.model }}-c${{ inputs.continuation_index }}
+          path: artifact
+          retention-days: 30
+
+      - name: Fail only after checkpoint has been uploaded
+        if: ${{ always() }}
+        run: |
+          if [ -f "SAMPLER_FATAL_${MODEL}.flag" ]; then
+            cat "SAMPLER_FATAL_${MODEL}.flag"
+            exit 1
+          fi
+          echo "Resume-safe checkpoint preserved for ${MODEL}."
