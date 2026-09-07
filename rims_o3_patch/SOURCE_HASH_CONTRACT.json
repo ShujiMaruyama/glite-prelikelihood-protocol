@@ -1,0 +1,15 @@
+{
+  "upstream_class_commit": "e85808324f51fc694d12e3ed7439552a3c3f9540",
+  "patches": {
+    "V18_23_LOCAL_RIMS_PATCH.diff": "6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74",
+    "V18_23_TO_V18_29.patch": "c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc"
+  },
+  "final_source_sha256": {
+    "include/background.h": "e8e81760366064a2155e9f7678fe83cd470d3c9ce0508d2ea0712ef18ca15e11",
+    "include/perturbations.h": "bd6dbd4c1b90114b51c0f421fb9dae051df3c44666d0ba77f40f8af60818c2ea",
+    "source/background.c": "28ed80d0b006990b983f3971f58d302858cfdcc7ee72156f1fe0668eee3af661",
+    "source/input.c": "15e7360a997d957ac772e3cc48be42311371c73b1fc92d6ad3df5f1eae642c63",
+    "source/perturbations.c": "928857ad4f19497d1ff07dae2df89c12659d7df2ea9aec0b70a20afb5eb842af",
+    "source/primordial.c": "f24482c65a3495d637ebd87e401e7a81750989fa0be79180fe301ceb1077a34c"
+  }
+}
