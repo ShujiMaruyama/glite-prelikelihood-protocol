@@ -1,0 +1,27 @@
+{
+  "schema": "rims-phaseii-o3-c8-map-heldout-validation-v1",
+  "date": "2026-09-07",
+  "training_data": "c6 post-burn diagnostic chains only",
+  "heldout_data": "c7-added samples only; c6 prefix excluded",
+  "note": "The transport-map coefficients were frozen from c6 before this c7-only heldout validation. c7-added samples are not used in the coefficient fit.",
+  "scalar": {
+    "heldout_markov_weight": 4020,
+    "q_H_mean": 0.47963010860359795,
+    "q_H_std": 0.010411066401842408,
+    "corr_H0_Omega_scf": -0.7543288149339852,
+    "corr_q_H_Omega_scf": 0.06839014304854871,
+    "absolute_linear_correlation_reduction_fraction": 0.9093349596634332
+  },
+  "rims": {
+    "heldout_markov_weight": 2552,
+    "q_H_mean": 0.48431071307767837,
+    "q_H_std": 0.009541860483146637,
+    "corr_H0_Omega_scf": -0.8049915828304586,
+    "corr_q_H_Omega_scf": 0.2359634590441147,
+    "corr_q_H_rims_alpha_U": -0.3211470504447988,
+    "corr_q_H_rims_shell_u_i": 0.1509861844115929,
+    "absolute_H0_Omega_to_qH_Omega_correlation_reduction_fraction": 0.7068746246828226
+  },
+  "interpretation": "The frozen periodic shear materially flattens the dominant H0-Omega_scf ridge on heldout c7-added samples. Residual RIMS coupling, especially q_H-rims_alpha_U, remains non-negligible and is intentionally left for c8p1 diagnostics rather than fitted away post hoc.",
+  "claim_boundary": "Sampler-geometry validation only; not a cosmological posterior result and not evidence of model preference."
+}
