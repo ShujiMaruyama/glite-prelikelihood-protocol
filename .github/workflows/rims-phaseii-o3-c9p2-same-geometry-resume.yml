@@ -130,7 +130,7 @@ jobs:
           set -euo pipefail
           rm -rf _prior c9_runtime chains_c9 parent_snapshot
           mkdir -p _prior c9_runtime parent_snapshot
-          gh run download "$PRIOR_RUN_ID" -n "rims-phaseii-o3-${MODEL}-c9p1" -D _prior
+          gh run download "$PRIOR_RUN_ID" -n "rims-phaseii-o3-${MODEL}-c9p1-v2" -D _prior
           test -s _prior/SHA256SUMS.txt
           (cd _prior && sha256sum -c SHA256SUMS.txt)
 
@@ -218,7 +218,7 @@ jobs:
             'schema':'rims-phaseii-o3-c9p2-continuation-contract-v1',
             'model':model,
             'parent_run':int(os.environ['PRIOR_RUN_ID']),
-            'parent_artifact':f'rims-phaseii-o3-{model}-c9p1',
+            'parent_artifact':f'rims-phaseii-o3-{model}-c9p1-v2',
             'resume_same_four_chains':True,
             'target_distribution_changed':False,
             'coordinate_map_changed':False,
