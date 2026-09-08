@@ -1,0 +1,233 @@
+@@ -1442,6 +1451,8 @@
+       class_define_index(ppt->index_ic_cdi,ppt->has_cdi,index_ic,1);
+       class_define_index(ppt->index_ic_nid,ppt->has_nid,index_ic,1);
+       class_define_index(ppt->index_ic_niv,ppt->has_niv,index_ic,1);
++      class_define_index(ppt->index_ic_rie,ppt->has_rie,index_ic,1);
++      class_define_index(ppt->index_ic_rmi,ppt->has_rmi,index_ic,1);
+       ppt->ic_size[index_md] = index_ic;
+ 
+       class_test(index_ic == 0,
+@@ -3361,6 +3372,9 @@
+       class_store_columntitle(ppt->scalar_titles, "theta_scf", pba->has_scf);
+       class_store_columntitle(ppt->scalar_titles, "delta_phi_scf", pba->has_rims);
+       class_store_columntitle(ppt->scalar_titles, "delta_phi_prime_scf", pba->has_rims);
++      class_store_columntitle(ppt->scalar_titles, "S_rims_dgamma", pba->has_rims);
++      class_store_columntitle(ppt->scalar_titles, "S_rims_ngamma", pba->has_rims);
++      class_store_columntitle(ppt->scalar_titles, "S_rims_internal", pba->has_rims);
+       /** Fluid */
+       class_store_columntitle(ppt->scalar_titles, "delta_rho_fld", pba->has_fld);
+       class_store_columntitle(ppt->scalar_titles, "rho_plus_p_theta_fld", pba->has_fld);
+@@ -5297,6 +5311,11 @@
+   double f_dr;
+   double rims_delta_idm_adiabatic;
+   double rims_scalar_source;
++  double rims_delta_idm_energy_initial;
++  double rims_delta_rho_scf_initial;
++  double rims_rho_plus_p_theta_scf_initial;
++  double rims_rho_total_initial;
++  int rims_ic_power;
+ 
+   double delta_tot;
+   double velocity_tot;
+@@ -5590,9 +5609,9 @@
+                  ppt->error_message,
+                  "not consistent to ask for CDI in absence of CDM!");
+ 
+-      class_test((pba->has_idm == _TRUE_),
++      class_test((pba->has_idm == _TRUE_) && (pba->has_rims == _FALSE_),
+                  ppt->error_message,
+-                 "only adiabatic ic in presence of interacting dark matter");
++                 "non-adiabatic IDM initial conditions require the RIMS regular-mode embedding");
+       ppw->pv->y[ppw->pv->index_pt_delta_g] = ppr->entropy_ini*fraccdm*om*tau*(-2./3.+om*tau/4.);
+       ppw->pv->y[ppw->pv->index_pt_theta_g] = -ppr->entropy_ini*fraccdm*om*ktau_two/12.;
+ 
+@@ -5712,6 +5731,150 @@
+ 
+     }
+ 
++
++    /** - --> (b.6) Universal regular RIMS embedding for the four
++        standard non-adiabatic CLASS scalar modes.
++
++        If delta_gamma=C_p tau^p+..., the RIMS matter source behaves as
++        S_phi=S_(p-1) tau^(p-1)+... and the regular particular root is
++
++          delta_phi       = S_phi(tau) tau^2/[(p+1)(p+2)],
++          delta_phi_prime = S_phi(tau) tau/(p+2).
++
++        The evolved IDM variable is the conserved-number contrast D_n,
++        while D_d=D_n+alpha_d delta_phi is the stress-energy contrast.
++        The pressureless regular velocity root is initialized to zero.
++        AD is excluded here because its V7 initializer above is retained
++        byte-for-byte. */
++    if ((pba->has_rims == _TRUE_) &&
++        (pba->rims_regular_standard_ic == _TRUE_) &&
++        (((ppt->has_cdi == _TRUE_) && (index_ic == ppt->index_ic_cdi)) ||
++         ((ppt->has_bi == _TRUE_) && (index_ic == ppt->index_ic_bi)) ||
++         ((ppt->has_nid == _TRUE_) && (index_ic == ppt->index_ic_nid)) ||
++         ((ppt->has_niv == _TRUE_) && (index_ic == ppt->index_ic_niv)))) {
++
++      rims_ic_power = 1;
++      if ((ppt->has_nid == _TRUE_) && (index_ic == ppt->index_ic_nid))
++        rims_ic_power = 0;
++
++      rims_delta_idm_adiabatic =
++        (3.-ppw->pvecback[pba->index_bg_rims_q])/4.
++        *ppw->pv->y[ppw->pv->index_pt_delta_g];
++
++      rims_scalar_source =
++        -a*a*3.*ppw->pvecback[pba->index_bg_rho_idm]
++        *ppw->pvecback[pba->index_bg_rims_alpha]
++        *rims_delta_idm_adiabatic;
++
++      ppw->pv->y[ppw->pv->index_pt_phi_scf] =
++        rims_scalar_source*tau*tau
++        /((rims_ic_power+1.)*(rims_ic_power+2.));
++      ppw->pv->y[ppw->pv->index_pt_phi_prime_scf] =
++        rims_scalar_source*tau/(rims_ic_power+2.);
++
++      ppw->pv->y[ppw->pv->index_pt_delta_idm] =
++        rims_delta_idm_adiabatic
++        -ppw->pvecback[pba->index_bg_rims_alpha]
++        *ppw->pv->y[ppw->pv->index_pt_phi_scf];
++      ppw->pv->y[ppw->pv->index_pt_theta_idm] = 0.;
++    }
++
++    /** - --> (b.7) RIMS-specific regular dark entropy directions.
++
++        RIE: S_dgamma=1 and S_internal=0 at leading order. The dark
++        energy contrast is D_d=(3-q) and sources the regular O(tau)
++        scalar particular solution.
++
++        RMI: the regular homogeneous scalar root is constant. Setting
++        D_n=-alpha_d delta_phi gives D_d=0 exactly at the initial time.
++        The singular tau^-1 scalar root and singular pressureless
++        velocity root are not excited. */
++    if ((ppt->has_rie == _TRUE_) && (index_ic == ppt->index_ic_rie)) {
++
++      /* Constraint-completed RIMS energy isocurvature.
++
++         The V18.24 dark-block-only seed set D_d=(3-q)S_E while leaving
++         the radiation, baryon, CDM, free-streaming and metric coefficients
++         at zero. That seed evolves, but it is not the complete regular
++         Einstein mode and exhibits strong start-depth dependence.
++
++         The regular leading coefficients are the IDM analogue of the
++         standard CDI solution, with the physical energy-entropy amplitude
++
++           A_d = (3-q) S_E
++
++         and the matter fraction fracidm. This supplies the compensating
++         photon, baryon, CDM, neutrino-shear and eta coefficients required
++         by the Einstein constraints. The RIMS energy contrast is then
++
++           D_d = A_d + (3-q) delta_gamma/4,
++
++         which gives S_dgamma=S_E identically at the initial order. */
++
++      rims_delta_idm_adiabatic =
++        (3.-ppw->pvecback[pba->index_bg_rims_q])
++        *ppr->entropy_ini;
++
++      ppw->pv->y[ppw->pv->index_pt_delta_g] =
++        rims_delta_idm_adiabatic*fracidm*om*tau
++        *(-2./3.+om*tau/4.);
++      ppw->pv->y[ppw->pv->index_pt_theta_g] =
++        -rims_delta_idm_adiabatic*fracidm*om*ktau_two/12.;
++
++      ppw->pv->y[ppw->pv->index_pt_delta_b] =
++        3./4.*ppw->pv->y[ppw->pv->index_pt_delta_g];
++      ppw->pv->y[ppw->pv->index_pt_theta_b] =
++        ppw->pv->y[ppw->pv->index_pt_theta_g];
++
++      if (pba->has_cdm == _TRUE_) {
++        ppw->pv->y[ppw->pv->index_pt_delta_cdm] =
++          3./4.*ppw->pv->y[ppw->pv->index_pt_delta_g];
++      }
++
++      if ((pba->has_ur == _TRUE_) || (pba->has_ncdm == _TRUE_)) {
++        delta_ur = ppw->pv->y[ppw->pv->index_pt_delta_g];
++        theta_ur = ppw->pv->y[ppw->pv->index_pt_theta_g];
++        shear_ur =
++          -rims_delta_idm_adiabatic*fracidm
++          *ktau_two*tau*om/6./(2.*fracnu+15.);
++      }
++
++      eta =
++        -rims_delta_idm_adiabatic*fracidm*om*tau
++        *(1./6.-om*tau/16.);
++
++      rims_delta_idm_adiabatic +=
++        (3.-ppw->pvecback[pba->index_bg_rims_q])/4.
++        *ppw->pv->y[ppw->pv->index_pt_delta_g];
++
++      rims_scalar_source =
++        -a*a*3.*ppw->pvecback[pba->index_bg_rho_idm]
++        *ppw->pvecback[pba->index_bg_rims_alpha]
++        *rims_delta_idm_adiabatic;
++
++      ppw->pv->y[ppw->pv->index_pt_phi_scf] =
++        rims_scalar_source*tau*tau/2.;
++      ppw->pv->y[ppw->pv->index_pt_phi_prime_scf] =
++        rims_scalar_source*tau/2.;
++      ppw->pv->y[ppw->pv->index_pt_delta_idm] =
++        rims_delta_idm_adiabatic
++        -ppw->pvecback[pba->index_bg_rims_alpha]
++        *ppw->pv->y[ppw->pv->index_pt_phi_scf];
++      ppw->pv->y[ppw->pv->index_pt_theta_idm] = 0.;
++    }
++
++    if ((ppt->has_rmi == _TRUE_) && (index_ic == ppt->index_ic_rmi)) {
++
++      ppw->pv->y[ppw->pv->index_pt_phi_scf] =
++        ppr->entropy_ini;
++      ppw->pv->y[ppw->pv->index_pt_phi_prime_scf] = 0.;
++      ppw->pv->y[ppw->pv->index_pt_delta_idm] =
++        -ppw->pvecback[pba->index_bg_rims_alpha]
++        *ppw->pv->y[ppw->pv->index_pt_phi_scf];
++      ppw->pv->y[ppw->pv->index_pt_theta_idm] = 0.;
++      eta = 0.;
++    }
++
+     /** - (c) If the needed gauge is really the synchronous gauge, we need to affect the previously computed value of eta to the actual variable eta */
+ 
+     if (ppt->gauge == synchronous) {
+@@ -5747,7 +5910,16 @@
+         rho_cdm += ppw->pvecback[pba->index_bg_rho_cdm];
+       }
+       if (pba->has_idm == _TRUE_) {
+-        delta_cdm += ppw->pvecback[pba->index_bg_rho_idm] * ppw->pv->y[ppw->pv->index_pt_delta_idm];
++        rims_delta_idm_energy_initial =
++          ppw->pv->y[ppw->pv->index_pt_delta_idm];
++        if (pba->has_rims == _TRUE_) {
++          rims_delta_idm_energy_initial +=
++            ppw->pvecback[pba->index_bg_rims_alpha]
++            *ppw->pv->y[ppw->pv->index_pt_phi_scf];
++        }
++        delta_cdm +=
++          ppw->pvecback[pba->index_bg_rho_idm]
++          *rims_delta_idm_energy_initial;
+         rho_cdm += ppw->pvecback[pba->index_bg_rho_idm];
+       }
+       if (pba->has_dcdm == _TRUE_){
+@@ -5768,10 +5940,62 @@
+       velocity_tot = ((4./3.)*(fracg*ppw->pv->y[ppw->pv->index_pt_theta_g]+fracnu*theta_ur) + rho_m_over_rho_r*fracb*ppw->pv->y[ppw->pv->index_pt_theta_b])/(1.+rho_m_over_rho_r);
+ 
+       if (ppt->has_idm_dr == _TRUE_ ) {
+-        delta_tot += rho_m_over_rho_r*fracidm*ppw->pv->y[ppw->pv->index_pt_delta_idm]/(1.+rho_m_over_rho_r);
++        rims_delta_idm_energy_initial =
++          ppw->pv->y[ppw->pv->index_pt_delta_idm];
++        if (pba->has_rims == _TRUE_) {
++          rims_delta_idm_energy_initial +=
++            ppw->pvecback[pba->index_bg_rims_alpha]
++            *ppw->pv->y[ppw->pv->index_pt_phi_scf];
++        }
++        delta_tot +=
++          rho_m_over_rho_r*fracidm*rims_delta_idm_energy_initial
++          /(1.+rho_m_over_rho_r);
+         velocity_tot += rho_m_over_rho_r*fracidm*ppw->pv->y[ppw->pv->index_pt_theta_idm]/(1.+rho_m_over_rho_r);
+       }
+ 
++      /* Complete the Newtonian initial Einstein source with the scalar
++         stress-energy. The standard upstream alpha seed is written in
++         radiation-plus-matter variables. This is sufficient for ordinary

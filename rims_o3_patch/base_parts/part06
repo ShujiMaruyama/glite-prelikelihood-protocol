@@ -1,0 +1,20 @@
+       if (pth->has_idm_g == _TRUE_) {
+         dy[pv->index_pt_theta_idm] += -S_idm_g*dmu_idm_g*(theta_idm-theta_g); /* correction to idm velocity due to idm_g */
+       }
+@@ -9404,6 +9507,16 @@ int perturbations_derivs(double tau,
+         - metric_continuity*pvecback[pba->index_bg_phi_prime_scf] //  metric_continuity = h'/2
+         - (k2 + a2*pvecback[pba->index_bg_ddV_scf])*y[pv->index_pt_phi_scf]; //checked
+ 
++      if (pba->has_rims == _TRUE_) {
++        dy[pv->index_pt_phi_prime_scf] +=
++          -a2*(pvecback[pba->index_bg_rims_meff2]
++               -pvecback[pba->index_bg_ddV_scf])
++          *y[pv->index_pt_phi_scf]
++          -a2*3.*pvecback[pba->index_bg_rho_idm]
++          *pvecback[pba->index_bg_rims_alpha]
++          *y[pv->index_pt_delta_idm];
++      }
++
+     }
+ 
+     /** - ---> ultra-relativistic neutrino/relics (ur) */
