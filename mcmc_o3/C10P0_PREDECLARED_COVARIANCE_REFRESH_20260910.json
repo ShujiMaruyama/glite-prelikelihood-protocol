@@ -1,0 +1,79 @@
+{
+  "schema": "rims-phaseii-o3-c10p0-predeclared-covariance-refresh-v1",
+  "frozen_at_utc": "2026-09-10T06:15:00Z",
+  "source_run_id": 34292919619,
+  "source_stage": "c9p3",
+  "source_use": "proposal-training-only",
+  "source_is_production_posterior": false,
+  "source_artifacts": {
+    "scalar": {
+      "name": "rims-phaseii-o3-scalar-c9p3",
+      "digest": "sha256:82e7e27bd9f5925b727236b52ac5bb74be2a509a554e75e8fd074ddc51bd9005",
+      "internal_manifest_sha256": "f9a0d8c3dae2682deab7075e5ec65da334c1ade62c373926a44e7c5f93dc4b16",
+      "source_GetDist_Rminus1": 0.26682826381933755,
+      "source_minimum_parameter_ESS": 30.730743592031278
+    },
+    "rims": {
+      "name": "rims-phaseii-o3-rims-c9p3",
+      "digest": "sha256:9c44dfb3326449ae0b98bde0f95211805fcc67befeed5f43704e986095053ad7",
+      "internal_manifest_sha256": "e703e5b588486e401732f162a1c4112baf44e08d034abadeb7397574cb213388",
+      "source_GetDist_Rminus1": 0.9534180298700122,
+      "source_minimum_parameter_ESS": 14.815454604046044
+    }
+  },
+  "c10_geometry": {
+    "target_distribution_changed": false,
+    "coordinate_map_changed_from_c9": false,
+    "proposal_covariance_changed": true,
+    "fresh_chains": true,
+    "resume_c9_chains": false,
+    "concatenate_c9_and_c10_for_inference": false,
+    "burnin_fraction_for_covariance_training": 0.30,
+    "within_chain_covariance_only": true,
+    "diagonal_shrinkage": 0.15,
+    "corr_eigen_floor": 0.001,
+    "minimum_corr_eigenvalue_gate": 0.10,
+    "maximum_corr_condition_gate": 25.0,
+    "proposal_scale": 2.4,
+    "learn_proposal": false,
+    "scalar_expected_canonical_cov_sha256": "9ce8b41da3c267d030c20e1d087cfccef976e74911b56bf0e17da2a8d51fba80",
+    "rims_expected_canonical_cov_sha256": "9a9c9e1a83c4e4c35191ef8ca7a50d5f0ad56ae74695b9937ab26040458559f6"
+  },
+  "execution": {
+    "role": "bounded_nonproduction_geometry_pilot",
+    "sentinel_minutes": 15,
+    "pilot_minutes": 90,
+    "four_MPI_chains_per_model": true,
+    "automatic_c10p1_forbidden": true,
+    "automatic_any_follow_on_forbidden": true
+  },
+  "pilot_acceptance_sanity_gate": {
+    "aggregate_min": 0.15,
+    "aggregate_max": 0.60,
+    "per_chain_min": 0.10,
+    "per_chain_max": 0.70,
+    "minimum_distinct_rows_per_chain": 10
+  },
+  "production_gate": {
+    "GetDist_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000.0,
+    "unchanged": true
+  },
+  "post_run_required_audit": {
+    "recompute_GetDist_Rminus1": true,
+    "recompute_parameter_ESS": true,
+    "compute_rank_normalized_Rhat_bulk_tail_ESS": true,
+    "audit_local_autocorrelation_and_half_chain_drift": true,
+    "compare_ESS_per_walltime_against_c9p3": true,
+    "verify_target_equivalence": true,
+    "verify_geometry_hashes": true,
+    "no_production_claim_before_gate": true,
+    "no_automatic_continuation": true
+  },
+  "claim_boundary": {
+    "production_posterior": false,
+    "Bayes_factor": false,
+    "model_preference": false,
+    "LambdaCDM_competitiveness_verified": false
+  }
+}

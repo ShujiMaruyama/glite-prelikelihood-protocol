@@ -1,0 +1,100 @@
++         modes when the early scalar perturbation is negligible, but it is
++         not sufficient for the RIMS mass-number compensated root, whose
++         matter energy perturbation vanishes while delta_phi is finite.
++
++         The expressions below are the same synchronous-gauge scalar
++         density and momentum sources used by the evolution-time Einstein
++         equations. Reweight the already assembled radiation-plus-matter
++         source by the exact background total density before solving for
++         alpha. */
++      if (pba->has_scf == _TRUE_) {
++        rims_delta_rho_scf_initial =
++          1./3.*
++          (ppw->pvecback[pba->index_bg_phi_prime_scf]
++           *ppw->pv->y[ppw->pv->index_pt_phi_prime_scf]/a/a
++           +ppw->pvecback[pba->index_bg_dV_scf]
++           *ppw->pv->y[ppw->pv->index_pt_phi_scf]);
++
++        rims_rho_plus_p_theta_scf_initial =
++          1./3.*k*k/a/a
++          *ppw->pvecback[pba->index_bg_phi_prime_scf]
++          *ppw->pv->y[ppw->pv->index_pt_phi_scf];
++
++        rims_rho_total_initial =
++          ppw->pvecback[pba->index_bg_rho_tot];
++
++        class_test(rims_rho_total_initial <= 0.,
++                   ppt->error_message,
++                   "non-positive total density in the RIMS Newtonian initial source");
++
++        delta_tot =
++          ((rho_r+rho_m)*delta_tot
++           +rims_delta_rho_scf_initial)
++          /rims_rho_total_initial;
++
++        velocity_tot =
++          ((rho_r+rho_m)*velocity_tot
++           +rims_rho_plus_p_theta_scf_initial)
++          /rims_rho_total_initial;
++      }
++
+       alpha = (eta + 3./2.*a_prime_over_a*a_prime_over_a/k/k/s2_squared*(delta_tot + 3.*a_prime_over_a/k/k*velocity_tot))/a_prime_over_a;
+ 
+       ppw->pv->y[ppw->pv->index_pt_phi] = eta - a_prime_over_a*alpha;
+@@ -8198,6 +8422,7 @@
+   double delta_cdm=0.,theta_cdm=0.;
+   double delta_idm=0., delta_idm_energy=0., theta_idm=0.;
+   double delta_phi_scf_output=0.;
++  double rims_S_dgamma=0., rims_S_ngamma=0., rims_S_internal=0.;
+   double delta_dcdm=0.,theta_dcdm=0.;
+   double delta_dr=0.,theta_dr=0.,shear_dr=0., f_dr=1.0;
+   double delta_ur=0.,theta_ur=0.,shear_ur=0.,l4_ur=0.;
+@@ -8652,6 +8877,19 @@
+     class_store_double(dataptr, theta_scf, pba->has_scf, storeidx);
+     class_store_double(dataptr, delta_phi_scf_output, pba->has_rims, storeidx);
+     class_store_double(dataptr, y[ppw->pv->index_pt_phi_prime_scf], pba->has_rims, storeidx);
++    if (pba->has_rims == _TRUE_) {
++      if (fabs(3.-pvecback[pba->index_bg_rims_q]) > 1.e-14)
++        rims_S_dgamma =
++          delta_idm_energy/(3.-pvecback[pba->index_bg_rims_q])
++          -delta_g/4.;
++      else
++        rims_S_dgamma = 0.;
++      rims_S_ngamma = delta_idm/3.-delta_g/4.;
++      rims_S_internal = rims_S_ngamma-rims_S_dgamma;
++    }
++    class_store_double(dataptr, rims_S_dgamma, pba->has_rims, storeidx);
++    class_store_double(dataptr, rims_S_ngamma, pba->has_rims, storeidx);
++    class_store_double(dataptr, rims_S_internal, pba->has_rims, storeidx);
+     /** Fluid */
+     class_store_double(dataptr, ppw->delta_rho_fld, pba->has_fld, storeidx);
+     class_store_double(dataptr, ppw->rho_plus_p_theta_fld, pba->has_fld, storeidx);
+--- a/source/primordial.c
++++ b/source/primordial.c
+@@ -387,7 +387,7 @@
+                ppm->error_message,
+                "external Pk module cannot work if you ask for vector modes");
+ 
+-    class_test(ppt->has_bi == _TRUE_ || ppt->has_cdi == _TRUE_ || ppt->has_nid == _TRUE_ || ppt->has_niv == _TRUE_,
++    class_test(ppt->has_bi == _TRUE_ || ppt->has_cdi == _TRUE_ || ppt->has_nid == _TRUE_ || ppt->has_niv == _TRUE_ || ppt->has_rie == _TRUE_ || ppt->has_rmi == _TRUE_,
+                ppm->error_message,
+                "external Pk module cannot work if you ask for isocurvature modes (but that could be implemented easily in the future!)");
+ 
+@@ -774,6 +774,17 @@
+           one_tilt = ppm->n_niv;
+           one_running = ppm->alpha_niv;
+         }
++        if ((ppt->has_rie == _TRUE_) && (index_ic1 == ppt->index_ic_rie)) {
++          one_amplitude = ppm->A_s;
++          one_tilt = ppm->n_s;
++          one_running = ppm->alpha_s;
++        }
++
++        if ((ppt->has_rmi == _TRUE_) && (index_ic1 == ppt->index_ic_rmi)) {
++          one_amplitude = ppm->A_s;
++          one_tilt = ppm->n_s;
++          one_running = ppm->alpha_s;
++        }
+       }
+ 
+       if (_tensors_) {
