@@ -1,0 +1,350 @@
+name: RIMS Phase II O3 c10p0 covariance-refresh pilot
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: rims-phaseii-o3-c10p0-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  run-gate:
+    runs-on: ubuntu-latest
+    outputs:
+      execute: ${{ steps.gate.outputs.execute }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 2}
+      - id: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "execute=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          head_sha="${{ github.event.pull_request.head.sha }}"
+          git fetch --no-tags --depth=1 origin "$head_sha" || true
+          msg="$(git show -s --format=%B "$head_sha")"
+          printf 'head=%s\n%s\n' "$head_sha" "$msg"
+          if grep -Fq '[RIMS-C10P0-RUN]' <<<"$msg"; then
+            echo "execute=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "execute=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  config-audit:
+    needs: run-gate
+    if: needs.run-gate.outputs.execute == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit frozen c9p3 decision and c10p0 contract
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'numpy==2.5.3' pyyaml
+          python -m py_compile mcmc_o3/build_c10_preconditioner.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path('mcmc_o3/C9P3_POSTRUN_AUDIT_AND_C10_DECISION_20260910.json').read_text())
+          c=json.loads(Path('mcmc_o3/C10P0_PREDECLARED_COVARIANCE_REFRESH_20260910.json').read_text())
+          assert a['decision']['automatic_c9p4']=='FORBIDDEN'
+          assert a['decision']['blind_same_geometry_c9_continuation']=='STOP'
+          assert a['decision']['next_phase']=='C10_FRESH_FROZEN_PROPOSAL_GEOMETRY'
+          assert c['source_run_id']==34292919619
+          assert c['source_use']=='proposal-training-only'
+          assert c['source_is_production_posterior'] is False
+          assert c['c10_geometry']['target_distribution_changed'] is False
+          assert c['c10_geometry']['coordinate_map_changed_from_c9'] is False
+          assert c['c10_geometry']['proposal_covariance_changed'] is True
+          assert c['c10_geometry']['fresh_chains'] is True
+          assert c['c10_geometry']['concatenate_c9_and_c10_for_inference'] is False
+          assert c['execution']['automatic_c10p1_forbidden'] is True
+          assert c['production_gate']['GetDist_Rminus1_lt']==0.01
+          assert c['production_gate']['minimum_headline_ESS_ge']==1000.0
+          print('c10p0 frozen-contract audit PASS')
+          PY
+
+  geometry-audit:
+    needs: [run-gate, config-audit]
+    if: needs.run-gate.outputs.execute == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [scalar, rims]
+    runs-on: ubuntu-latest
+    env:
+      MODEL: ${{ matrix.model }}
+      SOURCE_RUN_ID: "34292919619"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deterministic geometry stack
+        run: python -m pip install --disable-pip-version-check 'numpy==2.5.3' pyyaml
+      - name: Recover c9p3 source, verify it, and build frozen c10 geometry
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf _source c10_runtime geometry_artifact
+          mkdir _source c10_runtime geometry_artifact
+          SOURCE_ARTIFACT="rims-phaseii-o3-${MODEL}-c9p3"
+          gh run download "$SOURCE_RUN_ID" -n "$SOURCE_ARTIFACT" -D _source
+          test -s _source/SHA256SUMS.txt
+          (cd _source && sha256sum -c SHA256SUMS.txt)
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          model=os.environ['MODEL']
+          frozen=json.loads(Path('mcmc_o3/C10P0_PREDECLARED_COVARIANCE_REFRESH_20260910.json').read_text())
+          got=hashlib.sha256(Path('_source/SHA256SUMS.txt').read_bytes()).hexdigest()
+          exp=frozen['source_artifacts'][model]['internal_manifest_sha256']
+          assert got==exp,(got,exp)
+          print('source manifest identity PASS',model,got)
+          PY
+          python mcmc_o3/build_c10_preconditioner.py --model "$MODEL" --c9p3-dir _source --out-dir c10_runtime
+          if [ "$MODEL" = scalar ]; then
+            YAML="c10_runtime/scalar_exp_c10p0_preconditioned.yaml"
+          else
+            YAML="c10_runtime/rims_exp_shell_c10p0_preconditioned.yaml"
+          fi
+          python - "$YAML" <<'PY'
+          import hashlib,json,os,sys,yaml
+          from pathlib import Path
+          model=os.environ['MODEL']; yp=Path(sys.argv[1])
+          c10=yaml.safe_load(yp.read_text())
+          basefile='_source/scalar_exp_c9_preconditioned.yaml' if model=='scalar' else '_source/rims_exp_shell_c9_preconditioned.yaml'
+          c9=yaml.safe_load(Path(basefile).read_text())
+          def target(d):
+              keep=['prior','value','min','max','derived']
+              return {'likelihood':d['likelihood'],'theory':d['theory'],'params':{k:({x:v[x] for x in keep if x in v} if isinstance(v,dict) else v) for k,v in d['params'].items()}}
+          assert target(c9)==target(c10)
+          meta=json.loads(Path(f'c10_runtime/{model}_c10_precond_meta.json').read_text())
+          assert meta['target_distribution_changed'] is False
+          assert meta['coordinate_map_changed_from_c9'] is False
+          assert meta['fresh_chains_required'] is True
+          assert meta['numeric_contract']['min_corr_eig']>=0.10
+          assert meta['numeric_contract']['corr_condition']<=25.0
+          audit={'schema':'rims-phaseii-o3-c10p0-geometry-audit-v1','model':model,'source_run_id':34292919619,'target_equivalence':True,'canonical_cov_sha256':meta['canonical_cov_sha256'],'corr_condition':meta['numeric_contract']['corr_condition'],'min_corr_eig':meta['numeric_contract']['min_corr_eig'],'source_manifest_sha256':hashlib.sha256(Path('_source/SHA256SUMS.txt').read_bytes()).hexdigest()}
+          Path(f'C10P0_GEOMETRY_AUDIT_{model}.json').write_text(json.dumps(audit,indent=2,sort_keys=True))
+          print(json.dumps(audit,indent=2,sort_keys=True))
+          PY
+          cp c10_runtime/* geometry_artifact/
+          cp "C10P0_GEOMETRY_AUDIT_${MODEL}.json" geometry_artifact/
+          cp mcmc_o3/C10P0_PREDECLARED_COVARIANCE_REFRESH_20260910.json geometry_artifact/
+          cp mcmc_o3/C9P3_POSTRUN_AUDIT_AND_C10_DECISION_20260910.json geometry_artifact/
+          cp mcmc_o3/build_c10_preconditioner.py geometry_artifact/
+          cp _source/SHA256SUMS.txt geometry_artifact/C9P3_SOURCE_SHA256SUMS.txt
+          (cd geometry_artifact && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: c10p0-geometry-${{ matrix.model }}
+          path: geometry_artifact
+          if-no-files-found: error
+          retention-days: 30
+
+  mcmc-pilot:
+    needs: [run-gate, config-audit, geometry-audit]
+    if: needs.run-gate.outputs.execute == 'true'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - {model: scalar, chain_root: scalar_c10p0}
+          - {model: rims, chain_root: rims_c10p0}
+    runs-on: ubuntu-latest
+    timeout-minutes: 210
+    env:
+      OMP_NUM_THREADS: 1
+      OPENBLAS_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
+      PYTHONUNBUFFERED: 1
+      MODEL: ${{ matrix.model }}
+      CHAIN_ROOT: ${{ matrix.chain_root }}
+      SENTINEL_MINUTES: "15"
+      PILOT_MINUTES: "90"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: c10p0-geometry-${{ matrix.model }}
+          path: c10_runtime
+      - name: Bind and verify frozen c10 geometry
+        run: |
+          set -euo pipefail
+          (cd c10_runtime && sha256sum -c SHA256SUMS.txt)
+          if [ "$MODEL" = scalar ]; then
+            YAML="c10_runtime/scalar_exp_c10p0_preconditioned.yaml"
+          else
+            YAML="c10_runtime/rims_exp_shell_c10p0_preconditioned.yaml"
+          fi
+          echo "YAML=$YAML" >> "$GITHUB_ENV"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          m=os.environ['MODEL']
+          d=json.loads(Path(f'c10_runtime/{m}_c10_precond_meta.json').read_text())
+          assert d['target_distribution_changed'] is False
+          assert d['fresh_chains_required'] is True
+          assert d['c9_samples_concatenated_with_c10'] is False
+          assert d['numeric_contract']['min_corr_eig']>=0.10
+          assert d['numeric_contract']['corr_condition']<=25.0
+          print('bound c10 geometry PASS')
+          PY
+
+      - name: Reconstruct pinned RIMS V18.29 CLASS source
+        run: |
+          set -euo pipefail
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > rims_o3_patch/V18_23_TO_V18_29.patch
+          test "$(sha256sum rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff | awk '{print $1}')" = "6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74"
+          test "$(sha256sum rims_o3_patch/V18_23_TO_V18_29.patch | awk '{print $1}')" = "c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc"
+          git clone https://github.com/lesgourg/class_public.git class_public
+          cd class_public
+          git checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          git apply ../rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          git apply ../rims_o3_patch/V18_23_TO_V18_29.patch
+          git diff --check
+          git rev-parse HEAD > ../CLASS_UPSTREAM_COMMIT.txt
+          git diff > ../RIMS_V18_29_RECONSTRUCTED.diff
+
+      - name: Install CLASS and inference stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openmpi-bin libopenmpi-dev
+          python -m pip install --upgrade pip
+          python -m pip install 'cython<4' 'numpy==2.5.3' scipy pandas pyyaml getdist mpi4py 'cobaya==3.6.2'
+          (cd class_public && python setup.py build)
+          python -m pip install -e ./class_public
+
+      - name: Cache matched likelihood packages
+        uses: actions/cache@v4
+        with:
+          path: packages
+          key: cobaya-3.6.2-planck2018-desi-dr2-pantheonplus-o3-c10
+
+      - name: Install or verify matched likelihood data
+        run: cobaya-install planck_2018_lowl.TT planck_2018_lowl.EE planck_2018_highl_plik.TTTEEE_lite_native bao.desi_dr2 sn.pantheonplus -p packages
+
+      - name: Theory plus likelihood preflight
+        run: |
+          rm -rf chains_c10p0 sentinel_c10p0
+          cobaya-run "$YAML" --test
+          rm -rf chains_c10p0 sentinel_c10p0
+
+      - name: Run disposable c10 proposal sentinel
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,yaml
+          from pathlib import Path
+          d=yaml.safe_load(Path(os.environ['YAML']).read_text())
+          d['output']=f"sentinel_c10p0/{os.environ['CHAIN_ROOT']}_sentinel"
+          Path('sentinel_c10p0_input.yaml').write_text(yaml.safe_dump(d,sort_keys=False))
+          PY
+          set +e
+          timeout --signal=INT --kill-after=45s "${SENTINEL_MINUTES}m" mpirun --oversubscribe -np 4 cobaya-run sentinel_c10p0_input.yaml > "sentinel_c10p0_${MODEL}.log" 2>&1
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] && [ "$rc" -ne 130 ]; then
+            cat "sentinel_c10p0_${MODEL}.log"
+            exit "$rc"
+          fi
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          import numpy as np
+          rows=0; weights=0.; chains={}
+          for i in range(1,5):
+              p=Path('sentinel_c10p0')/f"{os.environ['CHAIN_ROOT']}_sentinel.{i}.txt"
+              assert p.exists() and p.stat().st_size>0,p
+              a=np.loadtxt(p); a=a[None,:] if a.ndim==1 else a
+              r=len(a); w=float(a[:,0].sum()); acc=float(r/w)
+              assert r>=10,(i,r)
+              assert 0.10<=acc<=0.70,(i,acc)
+              rows+=r; weights+=w
+              chains[str(i)]={'rows':int(r),'weight_sum':w,'acceptance':acc}
+          aggregate=float(rows/weights)
+          assert 0.15<=aggregate<=0.60,aggregate
+          out={'schema':'rims-phaseii-o3-c10p0-sentinel-v1','model':os.environ['MODEL'],'rows':rows,'weight_sum':weights,'acceptance':aggregate,'chains':chains,'disposable':True}
+          Path(f'C10P0_SENTINEL_{os.environ["MODEL"]}.json').write_text(json.dumps(out,indent=2,sort_keys=True))
+          print(json.dumps(out,indent=2,sort_keys=True))
+          PY
+          rm -rf sentinel_c10p0
+
+      - name: Freeze c10p0 execution contract
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,subprocess
+          from pathlib import Path
+          m=os.environ['MODEL']
+          meta=Path(f'c10_runtime/{m}_c10_precond_meta.json')
+          files=[os.environ['YAML'],str(meta),f'c10_runtime/{m}_c10_precond.covmat','mcmc_o3/build_c10_preconditioner.py','mcmc_o3/C10P0_PREDECLARED_COVARIANCE_REFRESH_20260910.json','mcmc_o3/C9P3_POSTRUN_AUDIT_AND_C10_DECISION_20260910.json']
+          d={'schema':'rims-phaseii-o3-c10p0-execution-contract-v1','model':m,'role':'bounded_nonproduction_geometry_pilot','source_run_id':34292919619,'fresh_chain':True,'resume_c9':False,'c9_samples_concatenated':False,'target_distribution_changed':False,'coordinate_map_changed_from_c9':False,'proposal_covariance_changed':True,'proposal_scale':2.4,'learn_proposal':False,'sentinel_discarded':True,'sentinel_result':json.loads(Path(f'C10P0_SENTINEL_{m}.json').read_text()),'pilot_minutes':90,'automatic_follow_on_forbidden':True,'production_gate':{'GetDist_Rminus1_lt':0.01,'minimum_headline_ESS_ge':1000.0},'git_head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'sha256':{p:hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in files}}
+          Path(f'C10P0_EXECUTION_CONTRACT_{m}.json').write_text(json.dumps(d,indent=2,sort_keys=True))
+          print(json.dumps(d,indent=2,sort_keys=True))
+          PY
+
+      - name: Run fresh bounded c10p0 pilot
+        run: |
+          set -euo pipefail
+          rm -rf chains_c10p0
+          set +e
+          timeout --signal=INT --kill-after=45s "${PILOT_MINUTES}m" mpirun --oversubscribe -np 4 cobaya-run "$YAML" > "o3_${MODEL}_c10p0.log" 2>&1
+          rc=$?
+          set -e
+          echo "$rc" > "o3_${MODEL}_c10p0_exit_code.txt"
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] && [ "$rc" -ne 130 ]; then
+            tail -200 "o3_${MODEL}_c10p0.log"
+            exit "$rc"
+          fi
+          for i in 1 2 3 4; do
+            test -s "chains_c10p0/${CHAIN_ROOT}.${i}.txt"
+          done
+
+      - name: Analyze c10p0 without promoting it
+        run: |
+          python mcmc_o3/analyze_o3_chains.py --model "$MODEL" --root "chains_c10p0/$CHAIN_ROOT" --out "analysis_${MODEL}_c10p0"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          m=os.environ['MODEL']
+          d=json.loads(Path(f'analysis_{m}_c10p0/mcmc_summary.json').read_text())
+          # c10p0 is a preregistered geometry pilot irrespective of numerical convergence.
+          d['run_role']='bounded_nonproduction_geometry_pilot'
+          d['eligible_for_production_claim']=False
+          d['automatic_follow_on_forbidden']=True
+          Path(f'analysis_{m}_c10p0/mcmc_summary.json').write_text(json.dumps(d,indent=2))
+          print(json.dumps(d,indent=2))
+          PY
+
+      - name: Package c10p0 pilot artifact
+        run: |
+          set -euo pipefail
+          OUT="artifact_${MODEL}_c10p0"
+          rm -rf "$OUT" && mkdir "$OUT"
+          cp -r chains_c10p0 "$OUT/"
+          cp -r "analysis_${MODEL}_c10p0" "$OUT/"
+          cp "o3_${MODEL}_c10p0.log" "o3_${MODEL}_c10p0_exit_code.txt" "$OUT/"
+          cp "C10P0_SENTINEL_${MODEL}.json" "sentinel_c10p0_${MODEL}.log" "$OUT/"
+          cp "C10P0_EXECUTION_CONTRACT_${MODEL}.json" "$OUT/"
+          cp "c10_runtime/${MODEL}_c10_precond.covmat" "c10_runtime/${MODEL}_c10_precond_meta.json" "$OUT/"
+          cp "$YAML" "$OUT/"
+          cp c10_runtime/C9P3_SOURCE_SHA256SUMS.txt "$OUT/"
+          cp mcmc_o3/C10P0_PREDECLARED_COVARIANCE_REFRESH_20260910.json "$OUT/"
+          cp mcmc_o3/C9P3_POSTRUN_AUDIT_AND_C10_DECISION_20260910.json "$OUT/"
+          cp CLASS_UPSTREAM_COMMIT.txt RIMS_V18_29_RECONSTRUCTED.diff "$OUT/"
+          (cd "$OUT" && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rims-phaseii-o3-${{ matrix.model }}-c10p0
+          path: artifact_${{ matrix.model }}_c10p0
+          if-no-files-found: error
+          retention-days: 30
