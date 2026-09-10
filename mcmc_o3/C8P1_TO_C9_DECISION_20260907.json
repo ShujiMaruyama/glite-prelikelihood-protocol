@@ -1,0 +1,60 @@
+{
+  "schema": "rims-phaseii-o3-c8p1-to-c9-decision-v1",
+  "date": "2026-09-07",
+  "decision": "PROMOTE_FRESH_C9_PRECONDITIONED_TRANSPORT",
+  "c8p1": {
+    "scalar": {
+      "GetDist_Rminus1": 138.92477880407137,
+      "minimum_ESS": 1464.1732807395035,
+      "acceptance": 0.813375796178344,
+      "Omega_scf_worst_tau": 125.64417632015443,
+      "Omega_scf_worst_half_drift_sigma": 0.8943069257469941
+    },
+    "rims": {
+      "GetDist_Rminus1": 139.9918079851025,
+      "minimum_ESS": 10.619604665186708,
+      "acceptance": 0.8922101449275363,
+      "Omega_scf_worst_tau": 117.117,
+      "Omega_scf_worst_half_drift_sigma": 1.89
+    }
+  },
+  "predeclared_c8_resume_gate": {
+    "scalar_Omega_scf_tau_max": 120.0,
+    "rims_Omega_scf_tau_max": 352.5,
+    "q_H_tau_max": 200.0,
+    "half_drift_abs_max_sigma": 0.75
+  },
+  "gate_result": "FAIL_BLIND_C8_RESUME",
+  "diagnosis": [
+    "c8 nonlinear H0 shear reduces the dominant H0-Omega_scf ridge but 90-minute fresh chains remain in transit from overdispersed starts",
+    "c8p1 covariance file remained at the diagonal proposal hints, so learn_proposal did not mature early enough to precondition the fresh chains",
+    "high c8p1 acceptance indicates proposal steps remained too local despite improved coordinates"
+  ],
+  "c9_intervention": {
+    "target_distribution_changed": false,
+    "coordinate_map_changed": false,
+    "likelihood_changed": false,
+    "physical_priors_changed": false,
+    "posterior_samples_reused": false,
+    "proposal_preconditioner_source": "c7 diagnostic chains transformed into the frozen c8 coordinates; 30% row burn; weighted within-chain covariance average only",
+    "between_chain_offsets_used_in_covariance": false,
+    "diagonal_shrinkage": 0.15,
+    "correlation_eigenvalue_floor": 0.001,
+    "learn_proposal": false,
+    "proposal_scale": 2.4,
+    "sentinel_minutes": 15,
+    "sentinel_acceptance_gate": [0.15, 0.6],
+    "sentinel_samples_are_discarded": true,
+    "production_segment_minutes": 90,
+    "production_is_fresh_four_chain": true
+  },
+  "production_gate": {
+    "GetDist_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000.0
+  },
+  "claim_boundary": "No c8/c9 posterior, Bayes factor, evidence, detection, or model-preference claim unless the frozen production gate passes.",
+  "sha256": {
+    "scalar_c9_precond.covmat": "9b43e765071b134c72e3006013ce252a9e4c2cfd32f6c3b48fbbd04fd1b632c1",
+    "rims_c9_precond.covmat": "939209723b01a1fb3d42d98e66d637b102c4798a0a8755198283956ccccb6613"
+  }
+}

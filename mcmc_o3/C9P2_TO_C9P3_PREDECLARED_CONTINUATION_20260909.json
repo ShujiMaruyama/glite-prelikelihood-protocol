@@ -1,0 +1,56 @@
+{
+  "schema": "rims-phaseii-o3-c9p2-to-c9p3-predeclared-continuation-v1",
+  "frozen_at_utc": "2026-09-09T00:00:00Z",
+  "parent_run_id": 34189828640,
+  "parent_artifacts": {
+    "scalar": "rims-phaseii-o3-scalar-c9p2",
+    "rims": "rims-phaseii-o3-rims-c9p2"
+  },
+  "parent_artifact_digests": {
+    "scalar": "sha256:e0e809e2bb0f16e75116eb2df181e5021f311c66f3d5774b36f0aa33ef573a02",
+    "rims": "sha256:d9106d7b79b452fdf8dd6d6854968419d44d83bf906810d24b480ae9cf43d62b"
+  },
+  "parent_internal_manifest_sha256": {
+    "scalar": "5eba19996b00e7699c642a32480cce5d85348c36db69e8fa5cf6d88e1d752cbf",
+    "rims": "8129d4355a9ec66e02be253469cc05e6126d14a41e578e63a5e899c6f12b1d72"
+  },
+  "observed_at_freeze": {
+    "scalar": {
+      "GetDist_Rminus1": 0.3192193329592018,
+      "minimum_parameter_ESS": 36.20143858828906,
+      "added_acceptance_range": [0.4015069967707212, 0.45690672963400236],
+      "prefix_exact_all": true,
+      "all_chains_added_rows": true
+    },
+    "rims": {
+      "GetDist_Rminus1": 2.484776730947973,
+      "minimum_parameter_ESS": 12.043037073138997,
+      "added_acceptance_range": [0.4663677130044843, 0.511002444987775],
+      "prefix_exact_all": true,
+      "all_chains_added_rows": true
+    }
+  },
+  "continuation_contract": {
+    "resume_same_four_chains": true,
+    "target_distribution_changed": false,
+    "coordinate_map_changed": false,
+    "proposal_covariance_changed": false,
+    "proposal_scale_changed": false,
+    "proposal_scale": 2.4,
+    "learn_proposal": false,
+    "segment_minutes": 90,
+    "single_segment_only": true,
+    "automatic_c9p4_forbidden": true
+  },
+  "production_gate": {
+    "GetDist_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000.0
+  },
+  "post_c9p3_decision_rule": {
+    "must_recompute_Rminus1_ESS_acceptance_and_transport": true,
+    "must_verify_exact_parent_prefix": true,
+    "must_not_call_unconverged_chains_production_posterior": true,
+    "must_not_continue_automatically": true,
+    "interpretation": "c9p3 is one same-target, same-geometry, same-proposal diagnostic continuation to test whether the c9p1->c9p2 convergence trend persists."
+  }
+}
