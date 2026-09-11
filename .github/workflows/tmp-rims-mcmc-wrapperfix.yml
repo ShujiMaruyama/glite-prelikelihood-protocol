@@ -1,0 +1,183 @@
+name: temporary RIMS MCMC wrapper-fix
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  rims:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      OMP_NUM_THREADS: 1
+      OPENBLAS_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
+      PYTHONUNBUFFERED: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Recover inference files from audited PR5 head
+        run: |
+          mkdir -p mcmc
+          BASE=https://raw.githubusercontent.com/ShujiMaruyama/glite-prelikelihood-protocol/ed4cffb222936a2cfd207204e6df4782e4cce50d
+          curl -fsSL "$BASE/rims_classy.py" -o rims_classy.py
+          curl -fsSL "$BASE/mcmc/rims.yaml" -o mcmc/rims.yaml
+          curl -fsSL "$BASE/mcmc/rims_exact.yaml" -o mcmc/rims_exact.yaml
+          curl -fsSL "$BASE/mcmc/analyze_chains.py" -o mcmc/analyze_chains.py
+
+      - name: Fix background-only normalization wrapper
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('rims_classy.py')
+          s=p.read_text()
+          old='''        for key in [
+            "lensing",
+            "l_max_scalars",
+            "non_linear",
+            "hmcode_version",
+            "P_k_max_1/Mpc",
+            "P_k_max_h/Mpc",
+            "z_pk",
+        ]:
+'''
+          new='''        for key in [
+            "lensing",
+            "l_max_scalars",
+            "non_linear",
+            "hmcode_version",
+            "P_k_max_1/Mpc",
+            "P_k_max_h/Mpc",
+            "z_pk",
+            "ic",
+            "gauge",
+            "idm_soundspeed",
+            "rims_subleading_adiabatic_ic",
+        ]:
+'''
+          if old not in s:
+              raise SystemExit('Expected normalization-key block not found')
+          p.write_text(s.replace(old,new))
+          PY
+
+      - name: Build deterministic evaluate and fixed-reference MCMC inputs
+        run: |
+          python - <<'PY'
+          import copy, yaml
+          from pathlib import Path
+          p=Path('mcmc/rims.yaml')
+          d=yaml.safe_load(p.read_text())
+          refs={
+            'H0': 68.02239956,
+            'omega_b': 0.0224611661,
+            'omega_dm': 0.1185203994,
+            'logA': 3.0447838321,
+            'n_s': 0.9660499,
+            'tau_reio': 0.0544,
+            'Omega_scf': 0.1017248094,
+            'rims_alpha_U': 0.0613181089,
+            'rims_phi_transition': 20.091078,
+          }
+          for k,v in refs.items():
+            d['params'][k]['ref']=v
+          d['debug']=True
+          d['theory']['rims_classy.RIMSClassy']['stop_at_error']=True
+          Path('mcmc/rims_fixedref.yaml').write_text(yaml.safe_dump(d,sort_keys=False))
+          e=copy.deepcopy(d)
+          e['output']='chains/rims_evaluate'
+          e['sampler']={'evaluate': {'override': refs}}
+          Path('mcmc/rims_evaluate.yaml').write_text(yaml.safe_dump(e,sort_keys=False))
+          PY
+
+      - name: Recover pinned RIMS V7 patch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p _patch_artifact
+          gh run download 30425050547 -n rims-v10-turnover-results -D _patch_artifact
+          cp _patch_artifact/rims_class_v3.3.4_v7.patch ./rims_class_v3.3.4_v7.patch
+
+      - name: Checkout and patch CLASS v3.3.4
+        run: |
+          git clone https://github.com/lesgourg/class_public.git class_public
+          cd class_public
+          git checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          git apply ../rims_class_v3.3.4_v7.patch
+          git rev-parse HEAD > ../CLASS_UPSTREAM_COMMIT.txt
+          sha256sum ../rims_class_v3.3.4_v7.patch > ../PATCH_SHA256.txt
+
+      - name: Install CLASS and inference stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openmpi-bin libopenmpi-dev
+          python -m pip install --upgrade pip
+          python -m pip install 'cython<4' numpy scipy pandas pyyaml getdist mpi4py 'cobaya==3.6.2'
+          (cd class_public && python setup.py build)
+          python -m pip install -e ./class_public
+
+      - uses: actions/cache@v4
+        with:
+          path: packages
+          key: cobaya-3.6.2-planck2018-desi-dr2-pantheonplus-v1
+
+      - name: Install likelihood data
+        run: |
+          cobaya-install planck_2018_lowl.TT planck_2018_lowl.EE planck_2018_highl_plik.TTTEEE_lite_native bao.desi_dr2 sn.pantheonplus -p packages
+
+      - name: True fixed-point posterior evaluation
+        run: |
+          set -o pipefail
+          cobaya-run mcmc/rims_evaluate.yaml 2>&1 | tee rims_evaluate.log
+
+      - name: MCMC startup validation at fixed finite reference
+        run: |
+          set -o pipefail
+          cobaya-run mcmc/rims_fixedref.yaml --test 2>&1 | tee rims_startup.log
+          rm -rf chains/rims chains/rims.*
+
+      - name: Run checkpoint-safe four-chain RIMS MCMC
+        run: |
+          set +e
+          mkdir -p chains
+          timeout --signal=TERM --kill-after=60s 300m \
+            mpirun --oversubscribe -np 4 cobaya-run mcmc/rims_fixedref.yaml \
+            2>&1 | tee mcmc_rims.log
+          RC=${PIPESTATUS[0]}
+          echo "$RC" > MCMC_EXIT_CODE_rims.txt
+          if [ "$RC" -eq 0 ]; then
+            echo "RIMS MCMC completed before checkpoint timeout"
+          elif [ "$RC" -eq 124 ] || [ "$RC" -eq 143 ]; then
+            echo "Checkpoint timeout reached; preserving RIMS chains"
+          else
+            echo "RIMS MCMC exited unexpectedly with code $RC"
+          fi
+          exit 0
+
+      - name: Analyze current posterior and convergence
+        if: always()
+        run: |
+          if ls chains/rims*.txt >/dev/null 2>&1; then
+            python mcmc/analyze_chains.py --model rims --root chains/rims --out analysis_rims || true
+          else
+            echo "No RIMS chain files yet" > analysis_rims_missing.txt
+          fi
+
+      - name: Package artifact
+        if: always()
+        run: |
+          mkdir -p artifact
+          cp CLASS_UPSTREAM_COMMIT.txt PATCH_SHA256.txt artifact/ || true
+          cp mcmc/rims.yaml mcmc/rims_exact.yaml mcmc/rims_fixedref.yaml mcmc/rims_evaluate.yaml artifact/ || true
+          cp rims_classy.py mcmc/analyze_chains.py artifact/ || true
+          cp rims_evaluate.log rims_startup.log mcmc_rims.log MCMC_EXIT_CODE_rims.txt artifact/ || true
+          cp -r chains artifact/ || true
+          cp -r analysis_rims artifact/ || true
+          cp analysis_rims_missing.txt artifact/ || true
+          (cd artifact && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-full-mcmc-rims-wrapperfix
+          path: artifact
+          retention-days: 7
