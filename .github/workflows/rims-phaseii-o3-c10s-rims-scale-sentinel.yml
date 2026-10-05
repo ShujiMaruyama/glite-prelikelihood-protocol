@@ -2,7 +2,7 @@ name: RIMS Phase II O3 c10s RIMS proposal-scale sentinel sweep
 
 on:
   pull_request:
-    types: [opened]
+    types: [opened, synchronize]
 
 permissions:
   contents: read
@@ -73,6 +73,7 @@ jobs:
           path: c10_runtime
           repository: ShujiMaruyama/glite-prelikelihood-protocol
           run-id: 34445168396
+          github-token: ${{ github.token }}
 
       - name: Verify geometry and bind scale-specific disposable YAML
         run: |
