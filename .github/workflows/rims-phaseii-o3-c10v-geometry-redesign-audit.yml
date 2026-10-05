@@ -1,0 +1,123 @@
+name: RIMS Phase II O3 c10v analysis-only geometry redesign audit
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: rims-phaseii-o3-c10v-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  geometry-redesign-audit:
+    if: github.head_ref == 'rims-c10v-geometry-redesign-audit-20261005'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SOURCE_RUN_ID: '37248887077'
+      SOURCE_ARTIFACT_ID: '11321815241'
+      SOURCE_ARTIFACT_NAME: rims-phaseii-o3-rims-c10t
+      SOURCE_ARTIFACT_DIGEST: sha256:5ebb566f5f816ece598ee27072dd5b3a341922a52820136069cddc404027650a
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Audit frozen c10v contract
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('mcmc_o3/C10V_GEOMETRY_REDESIGN_CONTRACT_20261005.json').read_text())
+          assert d['role']=='analysis_only_target_preserving_geometry_redesign'
+          assert d['sources']['c10t_run_id']==37248887077
+          assert d['execution_firewall']['class_execution_forbidden'] is True
+          assert d['execution_firewall']['likelihood_execution_forbidden'] is True
+          assert d['execution_firewall']['mcmc_execution_forbidden'] is True
+          assert d['execution_firewall']['automatic_follow_on_forbidden'] is True
+          assert d['coordinate_candidates']['direct_H0_phi_transition']['status']=='diagnostic_only_blocked_from_execution'
+          assert d['production_gate']['GetDist_Rminus1_lt']==0.01
+          assert d['production_gate']['minimum_headline_ESS_ge']==1000.0
+          print('c10v contract PASS')
+          PY
+
+      - name: Install analysis-only stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy==2.5.3' scipy pandas pyyaml
+
+      - name: Verify and recover immutable c10t artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          got="$(gh api repos/ShujiMaruyama/glite-prelikelihood-protocol/actions/artifacts/${SOURCE_ARTIFACT_ID} --jq .digest)"
+          test "$got" = "$SOURCE_ARTIFACT_DIGEST"
+          run="$(gh api repos/ShujiMaruyama/glite-prelikelihood-protocol/actions/artifacts/${SOURCE_ARTIFACT_ID} --jq .workflow_run.id)"
+          test "$run" = "$SOURCE_RUN_ID"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.SOURCE_ARTIFACT_NAME }}
+          path: source_c10t
+          repository: ShujiMaruyama/glite-prelikelihood-protocol
+          run-id: ${{ env.SOURCE_RUN_ID }}
+          github-token: ${{ github.token }}
+
+      - name: Verify internal c10t manifest
+        run: |
+          set -euo pipefail
+          (cd source_c10t && sha256sum -c SHA256SUMS.txt)
+          for i in 1 2 3 4; do test -s "source_c10t/rims_c10t.${i}.txt"; done
+          test -s source_c10t/rims_c10t.updated.yaml
+          test -s source_c10t/rims_c10_precond.covmat
+
+      - name: Execute target-equivalence and geometry audit only
+        run: |
+          set -euo pipefail
+          rm -rf c10v_out && mkdir c10v_out
+          python -m py_compile mcmc_o3/analyze_c10v_geometry_redesign.py
+          python mcmc_o3/analyze_c10v_geometry_redesign.py \
+            --artifact-dir source_c10t \
+            --contract mcmc_o3/C10V_GEOMETRY_REDESIGN_CONTRACT_20261005.json \
+            --out-dir c10v_out \
+            | tee c10v_stdout.txt
+
+      - name: Enforce design-only claim boundary
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('c10v_out/C10V_GEOMETRY_REDESIGN_AUDIT.json'))
+          assert d['direct_H0_target_equivalence']['passed'] is True
+          assert d['direct_H0_max_between_within_reduction_fraction'] >= 0.10
+          assert d['covariance_cross_validation']['direct_H0_selected_shrinkage'] is not None
+          assert d['phi_transition_target_measure_audit']['status']=='blocked_from_execution_in_c10v'
+          assert d['decision']['new_mcmc_authorized'] is False
+          assert d['claim_boundary']['production_posterior'] is False
+          print('baseline lambda max',d['geometry_diagnostics']['baseline_qH_u']['max_between_within_eigenvalue'])
+          print('direct-H0 lambda max',d['geometry_diagnostics']['direct_H0_u']['max_between_within_eigenvalue'])
+          print('direct-H0 reduction',d['direct_H0_max_between_within_reduction_fraction'])
+          print('selected shrinkage',d['covariance_cross_validation']['direct_H0_selected_shrinkage'])
+          print('future sentinel eligible',d['decision']['direct_H0_candidate_eligible_for_future_fresh_sentinel'])
+          PY
+
+      - name: Package c10v auditable geometry candidate
+        run: |
+          set -euo pipefail
+          rm -rf artifact_c10v && mkdir artifact_c10v
+          cp c10v_out/* artifact_c10v/
+          cp c10v_stdout.txt artifact_c10v/
+          cp mcmc_o3/C10V_GEOMETRY_REDESIGN_CONTRACT_20261005.json artifact_c10v/
+          cp mcmc_o3/analyze_c10v_geometry_redesign.py artifact_c10v/
+          cp source_c10t/SHA256SUMS.txt artifact_c10v/C10T_SOURCE_SHA256SUMS.txt
+          (cd artifact_c10v && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rims-phaseii-o3-c10v-geometry-redesign-audit
+          path: artifact_c10v
+          retention-days: 30
+          if-no-files-found: error
