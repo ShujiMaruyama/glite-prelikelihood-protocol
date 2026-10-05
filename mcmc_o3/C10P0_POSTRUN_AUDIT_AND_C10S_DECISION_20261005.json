@@ -1,0 +1,105 @@
+{
+  "schema": "rims-phaseii-o3-c10p0-postrun-audit-and-c10s-decision-v1",
+  "frozen_at_utc": "2026-10-05T00:00:00Z",
+  "source_run_id": 34445168396,
+  "source_head_sha": "d06ac3a267fc9065ba2dba136f75263bed9bc53c",
+  "source_role": "bounded_nonproduction_geometry_pilot",
+  "artifact_integrity": {
+    "scalar_artifact_name": "rims-phaseii-o3-scalar-c10p0",
+    "scalar_artifact_id": 10142721455,
+    "scalar_artifact_digest": "sha256:aa044fbf65c1ad41f7bd8c80dbbe08652a035fc537854eb0c6a73c406a7b2c61",
+    "rims_geometry_artifact_name": "c10p0-geometry-rims",
+    "rims_geometry_artifact_id": 10139378513,
+    "rims_geometry_artifact_digest": "sha256:beacfded02e5847a058bc7539831db3bea85e6f6c9d3743b12f511f69d862c3a",
+    "target_distribution_changed": false,
+    "coordinate_map_changed_from_c9": false,
+    "c9_samples_concatenated_with_c10": false
+  },
+  "scalar_c10p0": {
+    "sentinel": {
+      "aggregate_acceptance": 0.460431654676259,
+      "per_chain_acceptance": [
+        0.524822695035461,
+        0.3732394366197183,
+        0.45038167938931295,
+        0.49295774647887325
+      ],
+      "disposable": true,
+      "gate_passed": true
+    },
+    "pilot": {
+      "minutes": 90,
+      "fresh_four_chains": true,
+      "weighted_samples_after_30pct_burnin": 2561.0,
+      "distinct_rows_after_30pct_burnin": 1070,
+      "GetDist_Rminus1": 1.0439014626176526,
+      "minimum_parameter_ESS": 15.141994538713492,
+      "production_gate_passed": false,
+      "best_sample_minuslogpost": 1190.8422,
+      "best_sample_chi2_sum": 2419.6687
+    },
+    "independent_rank_normalized_reaudit": {
+      "method": "integer-weight step reconstruction; 30 percent burn-in removed per chain; equalized tails; ArviZ rank-normalized Rhat and bulk/tail ESS; half-chain drift normalized by within-chain standard deviation",
+      "worst_rank_Rhat": {
+        "parameter": "omega_cdm",
+        "rank_Rhat": 1.480180,
+        "bulk_ESS": 7.847559,
+        "tail_ESS": 23.230147,
+        "max_abs_half_chain_drift_sigma": 1.475247
+      },
+      "second_worst_rank_Rhat": {
+        "parameter": "logA",
+        "rank_Rhat": 1.463399,
+        "bulk_ESS": 8.041399,
+        "tail_ESS": 27.087258,
+        "max_abs_half_chain_drift_sigma": 1.176698
+      },
+      "interpretation": "Acceptance is healthy but cross-chain stationarity and ridge transport remain poor. Proposal-scale acceptance alone is not the scalar bottleneck."
+    },
+    "decision": {
+      "blind_longer_same_geometry": "STOP",
+      "automatic_follow_on": false,
+      "production_posterior": false
+    }
+  },
+  "rims_c10p0": {
+    "sentinel": {
+      "proposal_scale": 2.4,
+      "aggregate_acceptance": 0.6196581196581197,
+      "predeclared_aggregate_gate": [0.15, 0.60],
+      "minimum_distinct_rows_per_chain_gate": 10,
+      "sentinel_completed": true,
+      "gate_passed": false,
+      "failure_mode": "aggregate acceptance exceeded the preregistered upper bound",
+      "class_or_likelihood_failure": false
+    },
+    "pilot_90min_executed": false,
+    "production_posterior": false
+  },
+  "c10s_predeclared_next_step": {
+    "role": "disposable_rims_proposal_scale_sentinel_sweep_only",
+    "model": "rims",
+    "source_geometry": "c10p0-geometry-rims from run 34445168396",
+    "target_distribution_changed": false,
+    "coordinate_map_changed": false,
+    "proposal_covariance_changed": false,
+    "proposal_scales": [2.8, 3.4],
+    "minutes_per_scale": 15,
+    "four_MPI_chains_per_scale": true,
+    "sentinel_samples_must_not_be_used_for_inference": true,
+    "automatic_90min_pilot_after_sweep": false,
+    "automatic_follow_on": false,
+    "selection_rule": "Use the lowest tested scale with aggregate acceptance in [0.20,0.50] and all four chains in [0.10,0.70]. If neither satisfies this diagnostic target, stop and redesign geometry rather than launching a long run."
+  },
+  "production_gate": {
+    "GetDist_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000.0,
+    "unchanged": true
+  },
+  "claim_boundary": {
+    "production_posterior": false,
+    "Bayes_factor": false,
+    "model_preference": false,
+    "LambdaCDM_competitiveness_verified": false
+  }
+}
