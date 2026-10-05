@@ -1,0 +1,131 @@
+{
+  "c10t_execution": {
+    "aggregate_acceptance": 0.4647058823529412,
+    "class_or_likelihood_runtime_failure": false,
+    "diagnostic_step_failure": "missing rims_c10t.paramnames; chain header itself contains the complete column map",
+    "eligible_for_inference": false,
+    "four_fresh_chains_completed": true,
+    "minutes": 45,
+    "per_chain_acceptance": [
+      0.4600760456273764,
+      0.42412451361867703,
+      0.4983922829581994,
+      0.46923076923076923
+    ],
+    "proposal_scale": 3.4,
+    "role": "bounded_nonproduction_rims_transport_pilot"
+  },
+  "c11g_predeclared_next_step": {
+    "automatic_follow_on": false,
+    "automatic_long_run": false,
+    "burnin_definition": "fraction of integer-weight reconstructed Markov steps, not fraction of distinct accepted rows",
+    "burnin_fraction": 0.3,
+    "chain_means_removed_before_pooling": true,
+    "coordinate_map_changed": false,
+    "diagonal_shrinkage_candidates": [
+      0.15,
+      0.2,
+      0.25,
+      0.3,
+      0.35,
+      0.4
+    ],
+    "model": "rims",
+    "posterior_samples_concatenated_for_inference": false,
+    "proposal_scale_matching_rule": "determinant-match the c10t scale 3.4 to the new covariance, then test rounded 0.85x, 1.00x, 1.15x scales in a disposable sentinel",
+    "role": "audit_repair_plus_geometry_only_then_disposable_scale_sentinel",
+    "sentinel_minutes_per_scale": 12,
+    "sentinel_samples_eligible_for_inference": false,
+    "sentinel_selection_rule": "choose the lowest tested scale with aggregate acceptance in [0.20,0.50], all four chains in [0.10,0.70], and at least 10 distinct accepted rows per chain; otherwise stop",
+    "shrinkage_selection_rule": "choose the smallest candidate with correlation minimum eigenvalue >=0.10 and correlation condition number <=25",
+    "source_is_production_posterior": false,
+    "source_use": "proposal-training-only",
+    "target_distribution_changed": false,
+    "within_chain_covariance_only": true
+  },
+  "claim_boundary": {
+    "Bayes_factor": false,
+    "LambdaCDM_competitiveness_verified": false,
+    "model_preference": false,
+    "production_posterior": false
+  },
+  "frozen_at_utc": "2026-10-05T07:00:00Z",
+  "geometry_mismatch_diagnostic": {
+    "anisotropy_ratio": 109.64841914887629,
+    "interpretation": "The remaining bottleneck is proposal orientation/conditional-width mismatch, not acceptance alone.",
+    "largest_correlation_mismatch_examples": [
+      {
+        "delta": 0.5883400445,
+        "empirical": 0.8010059119,
+        "old_proposal": 0.2126658674,
+        "pair": [
+          "logA",
+          "n_s"
+        ]
+      },
+      {
+        "delta": -0.5205334316,
+        "empirical": -0.1267732765,
+        "old_proposal": 0.3937601551,
+        "pair": [
+          "tau_reio",
+          "rims_shell_u_i"
+        ]
+      },
+      {
+        "delta": -0.5197512217,
+        "empirical": -0.3235728901,
+        "old_proposal": 0.1961783316,
+        "pair": [
+          "q_H",
+          "rims_shell_u_i"
+        ]
+      },
+      {
+        "delta": 0.5151499979,
+        "empirical": 0.8373546108,
+        "old_proposal": 0.3222046129,
+        "pair": [
+          "n_s",
+          "tau_reio"
+        ]
+      }
+    ],
+    "old_proposal_vs_empirical_generalized_eigen_max": 1.6044520833231386,
+    "old_proposal_vs_empirical_generalized_eigen_min": 0.01463269690322372,
+    "source": "within-chain c10t post-burn reconstructed states only; chain means removed before covariance pooling"
+  },
+  "independent_rank_reaudit": {
+    "interpretation": "Acceptance is healthy but cross-chain mixing and stationarity remain poor; proposal-scale tuning alone did not solve transport.",
+    "method": "integer-weight step reconstruction; 30 percent burn-in by reconstructed Markov steps; equalized post-burn tails; rank-normalized Rhat/bulk/tail ESS; per-chain half-chain drift",
+    "minimum_bulk_ESS": {
+      "parameter": "A_planck",
+      "value": 5.027252
+    },
+    "minimum_tail_ESS": {
+      "parameter": "n_s",
+      "value": 8.887138
+    },
+    "worst_half_chain_drift_sigma": {
+      "parameter": "q_H",
+      "value": 1.88996
+    },
+    "worst_rank_Rhat": {
+      "parameter": "A_planck",
+      "value": 2.518544
+    }
+  },
+  "production_gate": {
+    "GetDist_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000.0,
+    "unchanged": true
+  },
+  "schema": "rims-phaseii-o3-c10t-postrun-audit-and-c11g-decision-v1",
+  "source_artifact": {
+    "artifact_digest": "sha256:5ebb566f5f816ece598ee27072dd5b3a341922a52820136069cddc404027650a",
+    "artifact_id": 11321815241,
+    "name": "rims-phaseii-o3-rims-c10t",
+    "source_head_sha": "ddf304a61f84fec9a32be82aab1d430897a41018"
+  },
+  "source_run_id": 37248887077
+}
