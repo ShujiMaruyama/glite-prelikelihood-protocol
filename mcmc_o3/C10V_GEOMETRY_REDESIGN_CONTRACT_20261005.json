@@ -1,0 +1,78 @@
+{
+  "schema": "rims-phaseii-o3-c10v-geometry-redesign-contract-v1",
+  "frozen_at_utc": "2026-10-05T06:50:00Z",
+  "role": "analysis_only_target_preserving_geometry_redesign",
+  "sources": {
+    "c10t_run_id": 37248887077,
+    "c10t_artifact_id": 11321815241,
+    "c10t_artifact_digest": "sha256:5ebb566f5f816ece598ee27072dd5b3a341922a52820136069cddc404027650a",
+    "c10u_run_id": 37274017085,
+    "c10u_artifact_id": 11329443189,
+    "c10u_artifact_digest": "sha256:f40d5139051adca0cad23dc9e3946d0caa17d3220a8310df283f306b1dd2d964",
+    "source_use": "proposal_geometry_training_and_diagnostics_only",
+    "source_is_production_posterior": false
+  },
+  "execution_firewall": {
+    "class_execution_forbidden": true,
+    "likelihood_execution_forbidden": true,
+    "mcmc_execution_forbidden": true,
+    "automatic_follow_on_forbidden": true,
+    "source_chains_read_only": true
+  },
+  "coordinate_candidates": {
+    "baseline_qH_u": {
+      "sampled_slow": ["q_H","omega_b","omega_dm","logA","n_s","tau_reio","Omega_scf","rims_alpha_U","rims_shell_u_i"],
+      "status": "reference_only"
+    },
+    "direct_H0_u": {
+      "sampled_slow": ["H0","omega_b","omega_dm","logA","n_s","tau_reio","Omega_scf","rims_alpha_U","rims_shell_u_i"],
+      "required_equivalence_audit": [
+        "q_H prior is uniform on [0,1]",
+        "q_H is periodic and drop=true",
+        "q_H enters the target only through H0",
+        "H0=55+27*mod(q_H+g(other sampled parameters),1)",
+        "conditional map is one-to-one almost everywhere with constant absolute Jacobian 27",
+        "therefore direct H0 uniform on [55,82] preserves the target measure"
+      ],
+      "status": "eligible_only_if_all_equivalence_checks_pass"
+    },
+    "direct_H0_phi_transition": {
+      "sampled_slow": ["H0","omega_b","omega_dm","logA","n_s","tau_reio","Omega_scf","rims_alpha_U","rims_phi_transition"],
+      "status": "diagnostic_only_blocked_from_execution",
+      "reason": "u->phi has alpha-dependent support and Jacobian |du/dphi|=2*alpha_U; an independent flat phi prior would change the target distribution"
+    }
+  },
+  "covariance_design": {
+    "burnin_fraction": 0.30,
+    "burnin_basis": "integer_weight_reconstructed_MCMC_steps_per_chain",
+    "slow_fast_block_separation": true,
+    "fast_nuisance": ["A_planck"],
+    "diagonal_shrinkage_grid": [0.15,0.25,0.35,0.50,0.70,0.85],
+    "cross_validation": "leave_one_chain_out; train on three completed c10t chains and validate covariance shape on the held-out chain",
+    "heldout_metric": "generalized covariance eigenvalue condition number",
+    "selection_rule": "choose the lowest shrinkage whose worst held-out generalized condition is <=25; if none passes, reject fixed-global-covariance redesign",
+    "full_training_numeric_gates": {
+      "minimum_correlation_eigenvalue_ge": 0.10,
+      "correlation_condition_le": 25.0
+    },
+    "cross_block_covariance": "zero between the slow block and A_planck in the candidate geometry"
+  },
+  "coordinate_selection_rule": {
+    "direct_H0_must_be_target_equivalent": true,
+    "direct_H0_must_reduce_max_between_within_eigenvalue_by_fraction_ge": 0.10,
+    "phi_transition_candidate_cannot_be_selected_in_c10v": true,
+    "no_candidate_is_authorized_for_mcmc_by_c10v_itself": true
+  },
+  "production_gate": {
+    "GetDist_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000.0,
+    "unchanged": true
+  },
+  "claim_boundary": {
+    "eligible_for_inference": false,
+    "production_posterior": false,
+    "Bayes_factor": false,
+    "model_preference": false,
+    "LambdaCDM_competitiveness_verified": false
+  }
+}
