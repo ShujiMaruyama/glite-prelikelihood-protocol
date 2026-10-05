@@ -1,0 +1,71 @@
+{
+  "schema": "rims-phaseii-o3-c10s-postrun-and-c10t-decision-v1",
+  "source_run_id": 37246838213,
+  "source_head_sha": "7729ad31386abeb394a9c321675290b07c0d96d6",
+  "source_role": "disposable_nonproduction_proposal_scale_diagnostic",
+  "source_artifacts": {
+    "s28": {
+      "artifact_id": 11319688170,
+      "artifact_digest": "sha256:e164e32882d06e23e1933bb2841d6b932bf01fd45b0324a5b1bc5b3d8c7ed32a",
+      "proposal_scale": 2.8,
+      "aggregate_acceptance": 0.5567765567765568,
+      "per_chain_acceptance": [0.6533333333333333, 0.5555555555555556, 0.5625, 0.43548387096774194],
+      "distinct_rows_per_chain": [49, 40, 36, 27],
+      "diagnostic_target_passed": false
+    },
+    "s34": {
+      "artifact_id": 11320305023,
+      "artifact_digest": "sha256:ba83657d6b408564bd4c1bdc71089b9bfbff8b104f298566d4c716e014dae21f",
+      "proposal_scale": 3.4,
+      "aggregate_acceptance": 0.41885964912280704,
+      "per_chain_acceptance": [0.38414634146341464, 0.4482758620689655, 0.46551724137931033, 0.39325842696629215],
+      "distinct_rows_per_chain": [63, 39, 54, 35],
+      "diagnostic_target_passed": true
+    }
+  },
+  "selection_rule_frozen_before_c10s": "Use the lowest tested scale with aggregate acceptance in [0.20,0.50] and all four chains in [0.10,0.70]. If neither satisfies this diagnostic target, stop and redesign geometry rather than launching a long run.",
+  "selection_decision": {
+    "selected_proposal_scale": 3.4,
+    "reason": "scale 2.8 exceeded the aggregate acceptance upper target while scale 3.4 satisfied aggregate and all per-chain acceptance targets",
+    "sentinel_samples_eligible_for_inference": false,
+    "automatic_long_run": false
+  },
+  "c10t_predeclared_next_step": {
+    "role": "bounded_nonproduction_rims_transport_pilot",
+    "model": "rims",
+    "source_geometry": "c10p0-geometry-rims from run 34445168396",
+    "proposal_scale": 3.4,
+    "minutes": 45,
+    "fresh_four_MPI_chains": true,
+    "burnin_fraction_for_diagnostics": 0.30,
+    "target_distribution_changed": false,
+    "coordinate_map_changed": false,
+    "proposal_covariance_changed": false,
+    "learn_proposal": false,
+    "concatenate_c9_c10p0_or_c10s_samples": false,
+    "c10s_sentinel_samples_must_not_be_used_for_inference": true,
+    "required_diagnostics": [
+      "aggregate_and_per_chain_acceptance",
+      "GetDist_Rminus1",
+      "minimum_parameter_ESS",
+      "rank_normalized_split_Rhat",
+      "bulk_ESS",
+      "tail_ESS",
+      "maximum_absolute_half_chain_drift_in_sigma"
+    ],
+    "automatic_follow_on": false,
+    "production_posterior": false,
+    "interpretation_rule": "The 45-minute run is only a transport diagnostic. No production posterior or model-comparison statement may be made from it. Any subsequent extension requires a separate post-run audit and explicit frozen decision."
+  },
+  "production_gate": {
+    "GetDist_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000.0,
+    "unchanged": true
+  },
+  "claim_boundary": {
+    "production_posterior": false,
+    "Bayes_factor": false,
+    "model_preference": false,
+    "LambdaCDM_competitiveness_verified": false
+  }
+}
