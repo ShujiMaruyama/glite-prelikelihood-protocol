@@ -1,0 +1,183 @@
+name: RIMS Phase II O3 c10w direct-H0 proposal-scale sentinel
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: rims-phaseii-o3-c10w-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  contract-audit:
+    if: github.head_ref == 'rims-c10w-h0-scale-sentinel-20261005'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit frozen c10w contract
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('mcmc_o3/C10W_H0_SCALE_SENTINEL_CONTRACT_20261005.json'))
+          assert d['role']=='disposable_nonproduction_direct_H0_proposal_scale_sweep'
+          assert d['geometry']['target_measure_equivalence_required'] is True
+          assert d['geometry']['A_planck_variance_rule'].startswith('preserve the exact')
+          assert d['sentinel']['proposal_scales']==[3.2,3.8,4.4]
+          assert d['sentinel']['minutes_per_scale']==15
+          assert d['sentinel']['samples_eligible_for_inference'] is False
+          assert d['sentinel']['automatic_follow_on'] is False
+          assert d['production_gate']['GetDist_Rminus1_lt']==0.01
+          assert d['production_gate']['minimum_headline_ESS_ge']==1000.0
+          print('c10w contract PASS')
+          PY
+
+  sentinel:
+    needs: contract-audit
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - {proposal_scale: 3.2, tag: s32}
+          - {proposal_scale: 3.8, tag: s38}
+          - {proposal_scale: 4.4, tag: s44}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      OMP_NUM_THREADS: 1
+      OPENBLAS_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
+      PYTHONUNBUFFERED: 1
+      PROPOSAL_SCALE: ${{ matrix.proposal_scale }}
+      TAG: ${{ matrix.tag }}
+      CHAIN_ROOT: rims_c10w_${{ matrix.tag }}
+      SENTINEL_MINUTES: '15'
+      C10T_RUN_ID: '37248887077'
+      C10V_RUN_ID: '37275374911'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Recover immutable c10t source artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rims-phaseii-o3-rims-c10t
+          path: source_c10t
+          repository: ShujiMaruyama/glite-prelikelihood-protocol
+          run-id: ${{ env.C10T_RUN_ID }}
+          github-token: ${{ github.token }}
+
+      - name: Recover immutable c10v geometry artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rims-phaseii-o3-c10v-geometry-redesign-audit
+          path: source_c10v
+          repository: ShujiMaruyama/glite-prelikelihood-protocol
+          run-id: ${{ env.C10V_RUN_ID }}
+          github-token: ${{ github.token }}
+
+      - name: Verify source manifests and build scale-specific direct-H0 input
+        run: |
+          set -euo pipefail
+          (cd source_c10t && sha256sum -c SHA256SUMS.txt)
+          (cd source_c10v && sha256sum -c SHA256SUMS.txt)
+          python -m pip install --disable-pip-version-check 'numpy==2.5.3' pyyaml
+          rm -rf c10w_runtime && mkdir c10w_runtime
+          python mcmc_o3/build_c10w_h0_sentinel.py \
+            --c10t-dir source_c10t \
+            --c10v-dir source_c10v \
+            --out-dir c10w_runtime \
+            --scale "$PROPOSAL_SCALE" \
+            --tag "$TAG"
+          test -s "c10w_runtime/rims_c10w_${TAG}.yaml"
+          test -s "c10w_runtime/rims_c10w_H0_blockaware.covmat"
+
+      - name: Reconstruct pinned RIMS V18.29 CLASS source
+        run: |
+          set -euo pipefail
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > rims_o3_patch/V18_23_TO_V18_29.patch
+          test "$(sha256sum rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff | awk '{print $1}')" = "6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74"
+          test "$(sha256sum rims_o3_patch/V18_23_TO_V18_29.patch | awk '{print $1}')" = "c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc"
+          git clone https://github.com/lesgourg/class_public.git class_public
+          cd class_public
+          git checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          git apply ../rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          git apply ../rims_o3_patch/V18_23_TO_V18_29.patch
+          git diff --check
+
+      - name: Install CLASS and inference stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openmpi-bin libopenmpi-dev
+          python -m pip install --upgrade pip
+          python -m pip install 'cython<4' 'numpy==2.5.3' scipy pandas pyyaml getdist mpi4py 'cobaya==3.6.2'
+          (cd class_public && python setup.py build)
+          python -m pip install -e ./class_public
+
+      - name: Restore matched likelihood cache
+        uses: actions/cache@v4
+        with:
+          path: packages
+          key: cobaya-3.6.2-planck2018-desi-dr2-pantheonplus-o3-c10
+
+      - name: Install or verify matched likelihood data
+        run: cobaya-install planck_2018_lowl.TT planck_2018_lowl.EE planck_2018_highl_plik.TTTEEE_lite_native bao.desi_dr2 sn.pantheonplus -p packages
+
+      - name: Direct-H0 theory and likelihood preflight
+        run: |
+          rm -rf sentinel_c10w
+          cobaya-run "c10w_runtime/rims_c10w_${TAG}.yaml" --test
+          rm -rf sentinel_c10w
+
+      - name: Execute disposable fresh four-chain sentinel
+        run: |
+          set +e
+          timeout --signal=INT --kill-after=45s "${SENTINEL_MINUTES}m" \
+            mpirun --oversubscribe -np 4 cobaya-run "c10w_runtime/rims_c10w_${TAG}.yaml" \
+            > "c10w_${TAG}.log" 2>&1
+          rc=$?
+          set -e
+          echo "$rc" > "c10w_${TAG}_exit_code.txt"
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] && [ "$rc" -ne 130 ]; then tail -200 "c10w_${TAG}.log"; exit "$rc"; fi
+          for i in 1 2 3 4; do test -s "sentinel_c10w/${CHAIN_ROOT}.${i}.txt"; done
+
+      - name: Audit sentinel acceptance only
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          import numpy as np
+          rows=0; weights=0.; chains={}
+          for i in range(1,5):
+              p=Path('sentinel_c10w')/f"{os.environ['CHAIN_ROOT']}.{i}.txt"
+              a=np.loadtxt(p); a=a[None,:] if a.ndim==1 else a
+              r=len(a); w=float(a[:,0].sum()); acc=float(r/w)
+              rows+=r; weights+=w
+              chains[str(i)]={'rows':int(r),'weight_sum':w,'acceptance':acc}
+          aggregate=float(rows/weights); per=[x['acceptance'] for x in chains.values()]
+          passed=(0.20<=aggregate<=0.45 and all(0.10<=x<=0.65 for x in per) and all(v['rows']>=10 for v in chains.values()))
+          out={'schema':'rims-phaseii-o3-c10w-h0-scale-sentinel-v1','role':'disposable_nonproduction_direct_H0_proposal_scale_diagnostic','proposal_scale':float(os.environ['PROPOSAL_SCALE']),'aggregate_acceptance':aggregate,'rows':rows,'weight_sum':weights,'chains':chains,'diagnostic_target_passed':passed,'distance_from_target_0p30':abs(aggregate-0.30),'target_distribution_changed':False,'coordinate':'direct_H0','eligible_for_inference':False,'automatic_follow_on_forbidden':True}
+          Path(f'C10W_SENTINEL_{os.environ["TAG"]}.json').write_text(json.dumps(out,indent=2,sort_keys=True)); print(json.dumps(out,indent=2,sort_keys=True))
+          PY
+
+      - name: Package auditable disposable sentinel
+        if: always()
+        run: |
+          OUT="artifact_c10w_${TAG}"; rm -rf "$OUT" && mkdir "$OUT"
+          cp "c10w_${TAG}.log" "c10w_${TAG}_exit_code.txt" "$OUT/" 2>/dev/null || true
+          cp "C10W_SENTINEL_${TAG}.json" "$OUT/" 2>/dev/null || true
+          cp c10w_runtime/* "$OUT/" 2>/dev/null || true
+          cp mcmc_o3/C10W_H0_SCALE_SENTINEL_CONTRACT_20261005.json "$OUT/"
+          cp sentinel_c10w/${CHAIN_ROOT}.*.txt "$OUT/" 2>/dev/null || true
+          (cd "$OUT" && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-phaseii-o3-c10w-${{ matrix.tag }}
+          path: artifact_c10w_${{ matrix.tag }}
+          retention-days: 30
