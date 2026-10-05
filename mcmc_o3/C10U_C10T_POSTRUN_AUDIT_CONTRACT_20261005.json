@@ -1,0 +1,59 @@
+{
+  "schema": "rims-phaseii-o3-c10u-c10t-postrun-audit-contract-v1",
+  "frozen_at_utc": "2026-10-05T06:35:00Z",
+  "role": "analysis_only_recovery_of_completed_c10t_transport_pilot",
+  "source": {
+    "workflow_run_id": 37248887077,
+    "artifact_name": "rims-phaseii-o3-rims-c10t",
+    "artifact_id": 11321815241,
+    "artifact_zip_digest": "sha256:5ebb566f5f816ece598ee27072dd5b3a341922a52820136069cddc404027650a",
+    "head_sha": "ddf304a61f84fec9a32be82aab1d430897a41018",
+    "mcmc_execution_completed": true,
+    "postrun_failure_only": true,
+    "postrun_failure_mode": "missing rims_c10t.paramnames assumed by diagnostic step",
+    "class_or_likelihood_failure": false
+  },
+  "execution_firewall": {
+    "new_mcmc_forbidden": true,
+    "source_chains_read_only": true,
+    "source_samples_eligible_for_inference": false,
+    "automatic_follow_on_forbidden": true
+  },
+  "diagnostics": {
+    "burnin_fraction": 0.30,
+    "burnin_basis": "integer_weight_reconstructed_MCMC_steps_per_chain",
+    "getdist_recovery": "synthesize a temporary paramnames map from the chain header and analyze weight-trimmed copies only",
+    "rank_normalized": true,
+    "bulk_and_tail_ess": true,
+    "half_chain_drift": true,
+    "separate_fast_nuisance_from_slow_block": true,
+    "chain_mean_separation": true,
+    "posterior_vs_proposal_correlation_mismatch": true,
+    "generalized_between_within_eigenmodes": true
+  },
+  "parameter_groups": {
+    "slow_headline": [
+      "q_H",
+      "omega_b",
+      "omega_dm",
+      "logA",
+      "n_s",
+      "tau_reio",
+      "Omega_scf",
+      "rims_alpha_U",
+      "rims_shell_u_i"
+    ],
+    "fast_nuisance": ["A_planck"]
+  },
+  "production_gate": {
+    "GetDist_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000.0,
+    "unchanged": true
+  },
+  "claim_boundary": {
+    "production_posterior": false,
+    "Bayes_factor": false,
+    "model_preference": false,
+    "LambdaCDM_competitiveness_verified": false
+  }
+}
