@@ -1,0 +1,137 @@
+name: RIMS Phase II O3 c10u c10t analysis-only postrun audit
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: rims-phaseii-o3-c10u-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  postrun-audit:
+    if: github.head_ref == 'rims-c10u-c10t-postrun-audit-20261005'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SOURCE_RUN_ID: '37248887077'
+      SOURCE_ARTIFACT_ID: '11321815241'
+      SOURCE_ARTIFACT_NAME: rims-phaseii-o3-rims-c10t
+      SOURCE_ARTIFACT_DIGEST: sha256:5ebb566f5f816ece598ee27072dd5b3a341922a52820136069cddc404027650a
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Audit frozen analysis-only contract
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('mcmc_o3/C10U_C10T_POSTRUN_AUDIT_CONTRACT_20261005.json').read_text())
+          assert d['role']=='analysis_only_recovery_of_completed_c10t_transport_pilot'
+          assert d['source']['workflow_run_id']==37248887077
+          assert d['source']['artifact_id']==11321815241
+          assert d['source']['artifact_zip_digest']=='sha256:5ebb566f5f816ece598ee27072dd5b3a341922a52820136069cddc404027650a'
+          assert d['source']['mcmc_execution_completed'] is True
+          assert d['source']['postrun_failure_only'] is True
+          assert d['source']['class_or_likelihood_failure'] is False
+          assert d['execution_firewall']['new_mcmc_forbidden'] is True
+          assert d['execution_firewall']['source_chains_read_only'] is True
+          assert d['execution_firewall']['automatic_follow_on_forbidden'] is True
+          assert d['production_gate']['GetDist_Rminus1_lt']==0.01
+          assert d['production_gate']['minimum_headline_ESS_ge']==1000.0
+          print('c10u contract PASS')
+          PY
+
+      - name: Install diagnostic-only stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy==2.5.3' scipy pandas pyyaml 'getdist==1.7.7' 'arviz==0.22.0'
+
+      - name: Verify GitHub artifact identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          got="$(gh api repos/ShujiMaruyama/glite-prelikelihood-protocol/actions/artifacts/${SOURCE_ARTIFACT_ID} --jq .digest)"
+          test "$got" = "$SOURCE_ARTIFACT_DIGEST"
+          run="$(gh api repos/ShujiMaruyama/glite-prelikelihood-protocol/actions/artifacts/${SOURCE_ARTIFACT_ID} --jq .workflow_run.id)"
+          test "$run" = "$SOURCE_RUN_ID"
+          echo "artifact metadata identity PASS: $got"
+
+      - name: Recover completed c10t artifact only
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.SOURCE_ARTIFACT_NAME }}
+          path: source_c10t
+          repository: ShujiMaruyama/glite-prelikelihood-protocol
+          run-id: ${{ env.SOURCE_RUN_ID }}
+          github-token: ${{ github.token }}
+
+      - name: Verify internal artifact manifest
+        run: |
+          set -euo pipefail
+          test -s source_c10t/SHA256SUMS.txt
+          (cd source_c10t && sha256sum -c SHA256SUMS.txt)
+          test -s source_c10t/rims_c10t.1.txt
+          test -s source_c10t/rims_c10t.2.txt
+          test -s source_c10t/rims_c10t.3.txt
+          test -s source_c10t/rims_c10t.4.txt
+          test -s source_c10t/rims_c10_precond.covmat
+          if [ -e source_c10t/rims_c10t.paramnames ]; then
+            echo 'Unexpected paramnames now present; audit remains valid but recovery path will not rely on it.'
+          else
+            echo 'Confirmed original postrun failure condition: rims_c10t.paramnames absent.'
+          fi
+
+      - name: Recover diagnostics from immutable completed chains
+        run: |
+          set -euo pipefail
+          python -m py_compile mcmc_o3/analyze_c10t_postrun.py
+          python mcmc_o3/analyze_c10t_postrun.py \
+            --artifact-dir source_c10t \
+            --burnin 0.30 \
+            --output C10U_C10T_POSTRUN_AUDIT.json \
+            | tee c10u_postrun_stdout.txt
+
+      - name: Enforce claim boundary and print compact summary
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('C10U_C10T_POSTRUN_AUDIT.json'))
+          assert d['GetDist']['available'] is True
+          assert d['claim_boundary']['eligible_for_inference'] is False
+          assert d['claim_boundary']['production_posterior'] is False
+          assert d['claim_boundary']['automatic_follow_on_forbidden'] is True
+          assert d['production_gate']['GetDist_Rminus1_lt']==0.01
+          assert d['production_gate']['minimum_headline_ESS_ge']==1000.0
+          print('aggregate acceptance',d['aggregate_acceptance'])
+          print('GetDist R-1',d['GetDist']['GetDist_Rminus1'])
+          print('GetDist min slow ESS',d['GetDist']['minimum_slow_headline_ESS'])
+          print('slow worst rank Rhat',d['slow_block_summary']['worst_rank_Rhat'])
+          print('slow min bulk ESS',d['slow_block_summary']['minimum_bulk_ESS'])
+          print('slow min tail ESS',d['slow_block_summary']['minimum_tail_ESS'])
+          print('slow worst drift',d['slow_block_summary']['worst_half_chain_drift'])
+          print('correlation mismatch Frobenius',d['proposal_posterior_correlation_frobenius_mismatch'])
+          PY
+
+      - name: Package auditable analysis-only recovery
+        run: |
+          set -euo pipefail
+          rm -rf artifact_c10u && mkdir artifact_c10u
+          cp C10U_C10T_POSTRUN_AUDIT.json c10u_postrun_stdout.txt artifact_c10u/
+          cp mcmc_o3/C10U_C10T_POSTRUN_AUDIT_CONTRACT_20261005.json artifact_c10u/
+          cp mcmc_o3/analyze_c10t_postrun.py artifact_c10u/
+          cp source_c10t/SHA256SUMS.txt artifact_c10u/C10T_SOURCE_SHA256SUMS.txt
+          (cd artifact_c10u && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rims-phaseii-o3-c10u-c10t-postrun-audit
+          path: artifact_c10u
+          retention-days: 30
+          if-no-files-found: error
