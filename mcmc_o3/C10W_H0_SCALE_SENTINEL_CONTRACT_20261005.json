@@ -1,0 +1,46 @@
+{
+  "schema": "rims-phaseii-o3-c10w-h0-scale-sentinel-contract-v1",
+  "frozen_at_utc": "2026-10-05T07:05:00Z",
+  "role": "disposable_nonproduction_direct_H0_proposal_scale_sweep",
+  "sources": {
+    "c10t_run_id": 37248887077,
+    "c10t_artifact_id": 11321815241,
+    "c10t_artifact_digest": "sha256:5ebb566f5f816ece598ee27072dd5b3a341922a52820136069cddc404027650a",
+    "c10v_run_id": 37275374911,
+    "c10v_artifact_id": 11330495266,
+    "c10v_artifact_digest": "sha256:31d45917795a9c350fa8f235608981bdb4fbeee10e85bfcd53ee42a70e31b3cf"
+  },
+  "geometry": {
+    "sampled_coordinate_change": "q_H_to_direct_H0",
+    "H0_prior": {"min":55.0,"max":82.0},
+    "target_measure_equivalence_required": true,
+    "slow_covariance_source": "c10v direct_H0_u 70 percent shrinkage candidate",
+    "slow_fast_cross_covariance": 0.0,
+    "A_planck_variance_rule": "preserve the exact A_planck diagonal variance from the c10t-used c10 preconditioner; do not use pooled c10t A_planck variance",
+    "learn_proposal": false,
+    "fresh_chains": true,
+    "concatenate_previous_samples": false
+  },
+  "sentinel": {
+    "proposal_scales": [3.2,3.8,4.4],
+    "minutes_per_scale": 15,
+    "four_MPI_chains_per_scale": true,
+    "aggregate_acceptance_window": [0.20,0.45],
+    "per_chain_acceptance_window": [0.10,0.65],
+    "minimum_distinct_rows_per_chain": 10,
+    "selection_rule": "Among passing scales, select the scale with aggregate acceptance closest to 0.30; tie-break toward the lower scale. If no scale passes, stop and redesign rather than launching a longer run.",
+    "samples_eligible_for_inference": false,
+    "automatic_follow_on": false
+  },
+  "production_gate": {
+    "GetDist_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000.0,
+    "unchanged": true
+  },
+  "claim_boundary": {
+    "production_posterior": false,
+    "Bayes_factor": false,
+    "model_preference": false,
+    "LambdaCDM_competitiveness_verified": false
+  }
+}
