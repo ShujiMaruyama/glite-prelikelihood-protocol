@@ -1,0 +1,152 @@
+{
+  "baseline": {
+    "c11_selected_scale": 5.7,
+    "fast_block_factors": {
+      "c10t": 27,
+      "c11s_4p8": 26,
+      "c11s_5p7": 27,
+      "c11s_6p5": 26
+    },
+    "repaired_c10t_GetDist_Rminus1": 80.39633775303028,
+    "repaired_c10t_minimum_ESS": 11.506303744675218
+  },
+  "claim_boundary": {
+    "Bayes_factor": false,
+    "LambdaCDM_competitiveness_verified": false,
+    "model_preference": false,
+    "production_posterior": false
+  },
+  "coordinate_map_changed": false,
+  "diagnostic_contract": {
+    "automatic_follow_on": false,
+    "automatic_long_run": false,
+    "comparison_control": "existing c11s scale=5.7 sentinel and repaired c10t diagnostics; do not rerun control",
+    "fresh_four_chains_per_arm": true,
+    "minutes_per_arm": 45,
+    "no_result_promotion_rule": "Neither arm is inference. No production claim follows from a transport improvement. Any later production run requires a separate explicit authorization and frozen contract.",
+    "required_runtime_checks": [
+      "dragging is active",
+      "manual blocking is exactly slow factor 1 and A_planck factor 27",
+      "no CLASS error",
+      "no likelihood error",
+      "no workflow error other than intentional timeout termination"
+    ],
+    "samples_eligible_for_inference": false,
+    "transport_metrics": [
+      "aggregate and per-chain acceptance",
+      "rank-normalized Rhat",
+      "bulk and tail ESS",
+      "half-chain drift",
+      "between/within leading generalized eigenvalue",
+      "per-parameter chain-mean span in within-chain sigma"
+    ]
+  },
+  "frozen_at_utc": "2026-10-07T02:50:00Z",
+  "interventions": {
+    "drag_only": {
+      "blocking": [
+        [1, ["q_H", "omega_b", "omega_dm", "logA", "n_s", "tau_reio", "Omega_scf", "rims_alpha_U", "rims_shell_u_i"]],
+        [27, ["A_planck"]]
+      ],
+      "drag": true,
+      "proposal_geometry": "frozen c11 covariance ac7cd90a5cc60a23029c3453ebc3ac441dfc8e61f3764db2739f9fceeaab976e",
+      "proposal_scale": 5.7,
+      "purpose": "isolate the fast/slow dragging intervention against the existing c11s 5.7 control without rerunning that control"
+    },
+    "drag_ridge": {
+      "blocking": [
+        [1, ["q_H", "omega_b", "omega_dm", "logA", "n_s", "tau_reio", "Omega_scf", "rims_alpha_U", "rims_shell_u_i"]],
+        [27, ["A_planck"]]
+      ],
+      "determinant_matched_scale_unrounded": 8.226530970550877,
+      "drag": true,
+      "proposal_geometry": "raw chain-centered within-chain c10t covariance, no diagonal shrinkage",
+      "proposal_scale": 8.2,
+      "purpose": "test dragging together with preservation of the stable narrow posterior ridge",
+      "ridge_covariance_sha256": "543c014fa0ba20d0219afeca339b34e473661940d8ff0fde8b9fe2b1c270da9b"
+    }
+  },
+  "production_gate": {
+    "GetDist_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000.0
+  },
+  "role": "nonproduction_transport_root_cause_diagnostic",
+  "root_cause_evidence": {
+    "c11_variance_inflation_along_stable_narrowest_mode": 26.64298498313158,
+    "interpretation": "The tight within-chain ridge is reproducible across leave-one-chain-out audits; diagonal shrinkage inflates it strongly. A_planck is isolated as a ~26-27x fast block while chain centers remain separated, so c12 tests fast dragging and ridge preservation rather than another blind long run.",
+    "leading_between_within_generalized_eigenvalue": 81.95454452546566,
+    "leading_between_within_mode_standardized_components": {
+      "A_planck": 0.022093160395213696,
+      "Omega_scf": -0.04251399314332236,
+      "logA": 0.6346188391081155,
+      "n_s": 0.08330465103499833,
+      "omega_b": -0.043307517780652484,
+      "omega_dm": -0.19873037239644678,
+      "q_H": -0.23564744450264244,
+      "rims_alpha_U": 0.010724589890096213,
+      "rims_shell_u_i": -0.13414808186187452,
+      "tau_reio": -0.6877601122560518
+    },
+    "leave_one_chain_out": [
+      {"first4_subspace_min_cosine": 0.9816994365551006, "narrowest_eigenvalue": 0.0062853512647658314, "narrowest_eigenvector_abs_cosine": 0.9988916157032315, "omitted_chain": 1},
+      {"first4_subspace_min_cosine": 0.9944076237176587, "narrowest_eigenvalue": 0.004687881209263503, "narrowest_eigenvector_abs_cosine": 0.9963984189396168, "omitted_chain": 2},
+      {"first4_subspace_min_cosine": 0.992675458331946, "narrowest_eigenvalue": 0.007315664107603913, "narrowest_eigenvector_abs_cosine": 0.9977356212031544, "omitted_chain": 3},
+      {"first4_subspace_min_cosine": 0.9500209584404854, "narrowest_eigenvalue": 0.01453625704270938, "narrowest_eigenvector_abs_cosine": 0.9603964301213755, "omitted_chain": 4}
+    ],
+    "minimum_loo_first4_subspace_cosine": 0.9500209584404854,
+    "minimum_loo_narrow_mode_alignment": 0.9603964301213755,
+    "narrowest_mode_components": {
+      "A_planck": 0.08933965321176485,
+      "Omega_scf": 0.03826883710319181,
+      "logA": -0.6384972054005237,
+      "n_s": -0.11668648794581167,
+      "omega_b": 0.027712692375682413,
+      "omega_dm": 0.13221801186189128,
+      "q_H": 0.1328528399849762,
+      "rims_alpha_U": -0.014959931240271432,
+      "rims_shell_u_i": 0.04610001298893858,
+      "tau_reio": 0.7287050300948767
+    },
+    "per_parameter_chain_mean_span_in_within_sigma": {
+      "A_planck": 10.15759655197897,
+      "Omega_scf": 0.7105207727818875,
+      "logA": 4.15687027181109,
+      "n_s": 3.692447766276755,
+      "omega_b": 2.0297598250852853,
+      "omega_dm": 3.1378918918086707,
+      "q_H": 4.2441630912852,
+      "rims_alpha_U": 2.1663737521983513,
+      "rims_shell_u_i": 2.1097849239875885,
+      "tau_reio": 3.7988514259391724
+    },
+    "raw_within_corr_condition": 624.3213332417631,
+    "raw_within_corr_eigenvalues": [
+      0.007739044082196588,
+      0.051629147025067275,
+      0.07449540903513627,
+      0.09433818579501126,
+      0.35880642544897395,
+      0.4778479448184696,
+      0.9933409909035789,
+      1.2576428271516784,
+      1.8525097063261386,
+      4.83165031941375
+    ]
+  },
+  "schema": "rims-phaseii-o3-c12-drag-ridge-predeclared-v1",
+  "source_artifacts": {
+    "c10t": {"artifact_id": 11321815241, "digest": "sha256:5ebb566f5f816ece598ee27072dd5b3a341922a52820136069cddc404027650a", "run_id": 37248887077},
+    "c11g": {"artifact_id": 11332059562, "digest": "sha256:a23f764b7d428c30ccdea7d749f55811f0add2212560109716d3e6e0e1a1207c", "run_id": 37281869390},
+    "c11s": {"artifact_id": 11334139648, "digest": "sha256:cee4300dfdd0f8eba0b4b3f1158061a04e22e90527b5928ed909fe4c4e0063a4", "run_id": 37281869390}
+  },
+  "source_samples_eligible_for_inference": false,
+  "target_distribution_changed": false,
+  "workflow_safety": {
+    "automatic_follow_on": false,
+    "automatic_long_run": false,
+    "default_mode": "preflight-only",
+    "no_control_rerun": true,
+    "no_inference_promotion": true,
+    "trigger": "workflow_dispatch only"
+  }
+}
