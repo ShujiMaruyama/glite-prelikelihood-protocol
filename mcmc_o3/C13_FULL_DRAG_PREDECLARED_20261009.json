@@ -1,0 +1,83 @@
+{
+  "schema": "rims-phaseii-o3-c13-full-drag-predeclared-v1",
+  "frozen_at_utc": "2026-10-09T04:20:00Z",
+  "role": "bounded_nonproduction_full_drag_scale_sentinel",
+  "source": {
+    "run_id": 37874107719,
+    "artifact_id": 11593256251,
+    "artifact_name": "rims-phaseii-o3-c12-drag-ridge",
+    "artifact_digest": "sha256:85f5fa21630d9827295bd3b8279a732638996dddcd2ba9752f52f5e953912a81",
+    "internal_manifest_sha256": "cb75d10c7f5e5ea7f755963fdf274c9d7327dc199f7ce52adc34771712d79def",
+    "audit_sha256": "796b317ee12835c8cd2a5e1fb6b574a1551076cfcc6106c45139eed7954b997e",
+    "ridge_covariance_sha256": "543c014fa0ba20d0219afeca339b34e473661940d8ff0fde8b9fe2b1c270da9b",
+    "eligible_for_inference": false
+  },
+  "c12_findings": {
+    "drag_only": {
+      "aggregate_acceptance": 0.08670520231213873,
+      "worst_rank_Rhat": 2.968408633358178,
+      "minimum_bulk_ESS": 4.772813648357862,
+      "minimum_tail_ESS": 6.076853380534762,
+      "leading_between_within_generalized_eigenvalue": 128.51226314882703
+    },
+    "drag_ridge": {
+      "aggregate_acceptance": 0.12077596996245307,
+      "worst_rank_Rhat": 2.127344145393481,
+      "minimum_bulk_ESS": 5.356452773859864,
+      "minimum_tail_ESS": 9.639769009240307,
+      "leading_between_within_generalized_eigenvalue": 21.972447759046062
+    },
+    "repaired_c10t_context": {
+      "GetDist_Rminus1": 80.39633775303028,
+      "minimum_ESS": 11.506303744675218,
+      "worst_rank_Rhat": 2.518543850190555,
+      "minimum_bulk_ESS": 5.027252401028696,
+      "minimum_tail_ESS": 8.887138211691534,
+      "leading_between_within_generalized_eigenvalue": 81.95454452546556
+    },
+    "interpretation": "Ridge preservation materially reduced cross-chain separation relative to c10t and drag-only, but convergence remains far from production. The c12 YAML requested a manual fast-block factor of 27 while the runtime log reported 3 interpolating fast steps because oversample_power remained 0.4; c13 isolates full dragging before any longer transport run."
+  },
+  "intervention": {
+    "proposal_covariance": "unchanged c12 ridge-preserving covariance",
+    "coordinate_map_changed": false,
+    "target_distribution_changed": false,
+    "learn_proposal": false,
+    "drag": true,
+    "oversample_power": 1.0,
+    "blocking": [
+      [1, ["q_H", "omega_b", "omega_dm", "logA", "n_s", "tau_reio", "Omega_scf", "rims_alpha_U", "rims_shell_u_i"]],
+      [27, ["A_planck"]]
+    ],
+    "required_runtime_marker": "* 27 : (['A_planck'],)",
+    "tested_proposal_scales": [5.7, 7.0, 8.2],
+    "minutes_per_scale": 18,
+    "four_fresh_MPI_chains_per_scale": true
+  },
+  "selection_rule": {
+    "aggregate_acceptance_interval": [0.20, 0.50],
+    "per_chain_acceptance_interval": [0.10, 0.65],
+    "minimum_distinct_rows_per_chain": 10,
+    "runtime_requirements": [
+      "dragging active",
+      "27 interpolating fast steps reported",
+      "no CLASS error",
+      "no likelihood error",
+      "no workflow error other than intentional timeout termination"
+    ],
+    "choose": "Among passing scales, choose the scale with aggregate acceptance closest to 0.30; tie -> lower scale. If none pass, stop and redesign rather than launch a longer run."
+  },
+  "automatic_follow_on": false,
+  "automatic_long_run": false,
+  "sentinel_samples_eligible_for_inference": false,
+  "production_gate": {
+    "GetDist_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000.0,
+    "unchanged": true
+  },
+  "claim_boundary": {
+    "production_posterior": false,
+    "Bayes_factor": false,
+    "model_preference": false,
+    "LambdaCDM_competitiveness_verified": false
+  }
+}
