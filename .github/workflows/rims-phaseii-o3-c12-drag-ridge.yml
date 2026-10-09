@@ -1,0 +1,288 @@
+name: RIMS Phase II O3 c12 fast-dragging and ridge-preservation diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_mode:
+        description: "Safety default is preflight-only; diagnostic modes execute bounded nonproduction MCMC"
+        required: true
+        type: choice
+        default: preflight-only
+        options:
+          - preflight-only
+          - drag-only
+          - drag-ridge
+          - diagnostic-both
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: rims-phaseii-o3-c12-${{ github.ref }}-${{ inputs.run_mode }}
+  cancel-in-progress: false
+
+env:
+  OMP_NUM_THREADS: 1
+  OPENBLAS_NUM_THREADS: 1
+  MKL_NUM_THREADS: 1
+  PYTHONUNBUFFERED: 1
+
+jobs:
+  preflight:
+    if: github.ref_name == 'rims-c12-drag-ridge-preflight-20261007'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Freeze contract
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('mcmc_o3/C12_DRAG_RIDGE_PREDECLARED_20261007.json')
+          d=json.loads(p.read_text())
+          assert d['role']=='nonproduction_transport_root_cause_diagnostic'
+          assert d['source_samples_eligible_for_inference'] is False
+          assert d['target_distribution_changed'] is False
+          assert d['coordinate_map_changed'] is False
+          assert d['workflow_safety']['trigger']=='workflow_dispatch only'
+          assert d['workflow_safety']['default_mode']=='preflight-only'
+          assert d['workflow_safety']['automatic_follow_on'] is False
+          assert d['workflow_safety']['automatic_long_run'] is False
+          assert d['production_gate']['GetDist_Rminus1_lt']==0.01
+          assert d['production_gate']['minimum_headline_ESS_ge']==1000.0
+          assert d['interventions']['drag_only']['proposal_scale']==5.7
+          assert d['interventions']['drag_ridge']['proposal_scale']==8.2
+          print('c12 frozen contract PASS')
+          PY
+
+      - name: Recover c10t source artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rims-phaseii-o3-rims-c10t
+          path: c10t_source
+          repository: ShujiMaruyama/glite-prelikelihood-protocol
+          run-id: 37248887077
+          github-token: ${{ github.token }}
+
+      - name: Recover c11 geometry artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rims-phaseii-o3-c11g-geometry
+          path: c11g_source
+          repository: ShujiMaruyama/glite-prelikelihood-protocol
+          run-id: 37281869390
+          github-token: ${{ github.token }}
+
+      - name: Recover c11 scale-sentinel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rims-phaseii-o3-c11s-scale-sentinel
+          path: c11s_source
+          repository: ShujiMaruyama/glite-prelikelihood-protocol
+          run-id: 37281869390
+          github-token: ${{ github.token }}
+
+      - name: Build c12 root-cause geometry
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy==2.5.3' pyyaml
+          python mcmc_o3/build_c12_drag_ridge.py \
+            --c10t-dir c10t_source \
+            --c11g-dir c11g_source \
+            --c11s-dir c11s_source \
+            --out-dir c12_preflight | tee c12_preflight_build.log
+          (cd c12_preflight && sha256sum -c SHA256SUMS.txt)
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('c12_preflight/C12_DRAG_RIDGE_PREFLIGHT.json').read_text())
+          e=d['root_cause_evidence']
+          assert e['minimum_loo_narrow_mode_alignment'] >= 0.95
+          assert e['minimum_loo_first4_subspace_cosine'] >= 0.94
+          assert e['c11_variance_inflation_along_stable_narrowest_mode'] > 20.0
+          assert e['leading_between_within_generalized_eigenvalue'] > 50.0
+          assert e['per_parameter_chain_mean_span_in_within_sigma']['A_planck'] > 8.0
+          assert d['c12_arms']['drag_only']['proposal_scale']==5.7
+          assert d['c12_arms']['drag_ridge']['proposal_scale']==8.2
+          assert d['diagnostic_contract']['automatic_follow_on'] is False
+          assert d['diagnostic_contract']['automatic_long_run'] is False
+          assert d['source_samples_eligible_for_inference'] is False
+          print('c12 numerical preflight PASS')
+          PY
+
+      - name: Package c12 preflight
+        run: |
+          set -euo pipefail
+          cp mcmc_o3/C12_DRAG_RIDGE_PREDECLARED_20261007.json c12_preflight/
+          cp mcmc_o3/build_c12_drag_ridge.py c12_preflight/
+          cp mcmc_o3/audit_c12_arm.py c12_preflight/
+          cp c12_preflight_build.log c12_preflight/
+          (cd c12_preflight && find . -type f ! -name SHA256SUMS_PACKAGE.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS_PACKAGE.txt && sha256sum -c SHA256SUMS_PACKAGE.txt)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rims-phaseii-o3-c12-preflight
+          path: c12_preflight
+          retention-days: 30
+
+  drag-only:
+    if: github.ref_name == 'rims-c12-drag-ridge-preflight-20261007' && (inputs.run_mode == 'drag-only' || inputs.run_mode == 'diagnostic-both')
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: rims-phaseii-o3-c12-preflight
+          path: c12_preflight
+      - name: Verify preflight artifact
+        run: (cd c12_preflight && sha256sum -c SHA256SUMS_PACKAGE.txt)
+      - name: Reconstruct pinned RIMS V18.29 CLASS source
+        run: |
+          set -euo pipefail
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > rims_o3_patch/V18_23_TO_V18_29.patch
+          test "$(sha256sum rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff | awk '{print $1}')" = "6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74"
+          test "$(sha256sum rims_o3_patch/V18_23_TO_V18_29.patch | awk '{print $1}')" = "c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc"
+          git clone https://github.com/lesgourg/class_public.git class_public
+          cd class_public
+          git checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          git apply ../rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          git apply ../rims_o3_patch/V18_23_TO_V18_29.patch
+          git diff --check
+      - name: Install CLASS and matched inference stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openmpi-bin libopenmpi-dev
+          python -m pip install --upgrade pip
+          python -m pip install 'cython<4' 'numpy==2.5.3' scipy pandas pyyaml getdist 'arviz==0.22.0' mpi4py 'cobaya==3.6.2'
+          (cd class_public && python setup.py build)
+          python -m pip install -e ./class_public
+      - name: Restore matched likelihood cache
+        uses: actions/cache@v4
+        with:
+          path: packages
+          key: cobaya-3.6.2-planck2018-desi-dr2-pantheonplus-o3-c10
+      - name: Install or verify matched likelihood data
+        run: cobaya-install planck_2018_lowl.TT planck_2018_lowl.EE planck_2018_highl_plik.TTTEEE_lite_native bao.desi_dr2 sn.pantheonplus -p packages
+      - name: Theory and likelihood preflight
+        run: |
+          rm -rf chains_c12/drag_only
+          cobaya-run c12_preflight/rims_c12_drag_only.yaml --test
+          rm -rf chains_c12/drag_only
+      - name: Execute bounded drag-only diagnostic
+        run: |
+          set -euo pipefail
+          set +e
+          timeout --signal=INT --kill-after=45s 45m mpirun --oversubscribe -np 4 cobaya-run c12_preflight/rims_c12_drag_only.yaml > c12_drag_only.log 2>&1
+          rc=$?
+          set -e
+          echo "$rc" > c12_drag_only_exit_code.txt
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] && [ "$rc" -ne 130 ]; then tail -200 c12_drag_only.log; exit "$rc"; fi
+      - name: Audit drag-only transport
+        if: always()
+        run: |
+          python mcmc_o3/audit_c12_arm.py \
+            --root chains_c12/drag_only/rims_c12_drag_only \
+            --arm drag_only \
+            --log c12_drag_only.log \
+            --out C12_DRAG_ONLY_AUDIT.json
+      - name: Package drag-only diagnostic
+        if: always()
+        run: |
+          OUT=c12_drag_only_artifact
+          rm -rf "$OUT" && mkdir "$OUT"
+          cp C12_DRAG_ONLY_AUDIT.json c12_drag_only.log c12_drag_only_exit_code.txt "$OUT/" 2>/dev/null || true
+          cp c12_preflight/C12_DRAG_RIDGE_PREFLIGHT.json c12_preflight/C12_DRAG_RIDGE_PREDECLARED_20261007.json c12_preflight/rims_c12_drag_only.yaml c12_preflight/rims_c11_precond.covmat "$OUT/" 2>/dev/null || true
+          cp chains_c12/drag_only/rims_c12_drag_only.* "$OUT/" 2>/dev/null || true
+          (cd "$OUT" && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-phaseii-o3-c12-drag-only
+          path: c12_drag_only_artifact
+          retention-days: 30
+
+  drag-ridge:
+    if: github.ref_name == 'rims-c12-drag-ridge-preflight-20261007' && (inputs.run_mode == 'drag-ridge' || inputs.run_mode == 'diagnostic-both')
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: rims-phaseii-o3-c12-preflight
+          path: c12_preflight
+      - name: Verify preflight artifact
+        run: (cd c12_preflight && sha256sum -c SHA256SUMS_PACKAGE.txt)
+      - name: Reconstruct pinned RIMS V18.29 CLASS source
+        run: |
+          set -euo pipefail
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > rims_o3_patch/V18_23_TO_V18_29.patch
+          test "$(sha256sum rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff | awk '{print $1}')" = "6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74"
+          test "$(sha256sum rims_o3_patch/V18_23_TO_V18_29.patch | awk '{print $1}')" = "c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc"
+          git clone https://github.com/lesgourg/class_public.git class_public
+          cd class_public
+          git checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          git apply ../rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          git apply ../rims_o3_patch/V18_23_TO_V18_29.patch
+          git diff --check
+      - name: Install CLASS and matched inference stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openmpi-bin libopenmpi-dev
+          python -m pip install --upgrade pip
+          python -m pip install 'cython<4' 'numpy==2.5.3' scipy pandas pyyaml getdist 'arviz==0.22.0' mpi4py 'cobaya==3.6.2'
+          (cd class_public && python setup.py build)
+          python -m pip install -e ./class_public
+      - name: Restore matched likelihood cache
+        uses: actions/cache@v4
+        with:
+          path: packages
+          key: cobaya-3.6.2-planck2018-desi-dr2-pantheonplus-o3-c10
+      - name: Install or verify matched likelihood data
+        run: cobaya-install planck_2018_lowl.TT planck_2018_lowl.EE planck_2018_highl_plik.TTTEEE_lite_native bao.desi_dr2 sn.pantheonplus -p packages
+      - name: Theory and likelihood preflight
+        run: |
+          rm -rf chains_c12/drag_ridge
+          cobaya-run c12_preflight/rims_c12_drag_ridge.yaml --test
+          rm -rf chains_c12/drag_ridge
+      - name: Execute bounded drag-plus-ridge diagnostic
+        run: |
+          set -euo pipefail
+          set +e
+          timeout --signal=INT --kill-after=45s 45m mpirun --oversubscribe -np 4 cobaya-run c12_preflight/rims_c12_drag_ridge.yaml > c12_drag_ridge.log 2>&1
+          rc=$?
+          set -e
+          echo "$rc" > c12_drag_ridge_exit_code.txt
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] && [ "$rc" -ne 130 ]; then tail -200 c12_drag_ridge.log; exit "$rc"; fi
+      - name: Audit drag-plus-ridge transport
+        if: always()
+        run: |
+          python mcmc_o3/audit_c12_arm.py \
+            --root chains_c12/drag_ridge/rims_c12_drag_ridge \
+            --arm drag_ridge \
+            --log c12_drag_ridge.log \
+            --out C12_DRAG_RIDGE_AUDIT.json
+      - name: Package drag-plus-ridge diagnostic
+        if: always()
+        run: |
+          OUT=c12_drag_ridge_artifact
+          rm -rf "$OUT" && mkdir "$OUT"
+          cp C12_DRAG_RIDGE_AUDIT.json c12_drag_ridge.log c12_drag_ridge_exit_code.txt "$OUT/" 2>/dev/null || true
+          cp c12_preflight/C12_DRAG_RIDGE_PREFLIGHT.json c12_preflight/C12_DRAG_RIDGE_PREDECLARED_20261007.json c12_preflight/rims_c12_drag_ridge.yaml c12_preflight/rims_c12_ridge_preserving.covmat "$OUT/" 2>/dev/null || true
+          cp chains_c12/drag_ridge/rims_c12_drag_ridge.* "$OUT/" 2>/dev/null || true
+          (cd "$OUT" && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-phaseii-o3-c12-drag-ridge
+          path: c12_drag_ridge_artifact
+          retention-days: 30
