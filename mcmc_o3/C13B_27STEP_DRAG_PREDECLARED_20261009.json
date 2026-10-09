@@ -1,0 +1,65 @@
+{
+  "schema": "rims-phaseii-o3-c13b-27step-drag-predeclared-v1",
+  "frozen_at_utc": "2026-10-09T06:10:00Z",
+  "role": "bounded_nonproduction_27step_drag_scale_sentinel",
+  "source_failed_run": {
+    "run_id": 37887669578,
+    "artifact_id": 11597154860,
+    "artifact_name": "rims-phaseii-o3-c13-full-drag-sentinel",
+    "artifact_digest": "sha256:abad26f5a4787cf851ec426b73a36f33401ab1077546b32504b5fd77f99a8d0d",
+    "internal_manifest_sha256": "9af4ade6c9c40d8c81f299d239eaae27019bdbc12ff94e139af528ed8fd35da4",
+    "failure_cause": "runtime guard expected 27 dragging steps, but Cobaya correctly produced 3 because drag_interp_steps = round(f_fast*n_fast/n_slow) = round(27*1/9)=3",
+    "class_or_likelihood_failure": false,
+    "eligible_for_inference": false
+  },
+  "c13_partial_scale_5p7": {
+    "exit_code": 124,
+    "aggregate_acceptance": 0.1941747572815534,
+    "per_chain_acceptance": [0.11428571428571428,0.22077922077922077,0.15714285714285714,0.2608695652173913],
+    "worst_rank_Rhat": 3.4468664025172693,
+    "minimum_bulk_ESS": 5.241792072431352,
+    "minimum_tail_ESS": 5.022621003412107,
+    "leading_between_within_generalized_eigenvalue": 263.5369705650918,
+    "interpretation": "This is a disposable 18-minute partial diagnostic with only 3 dragging steps, not an inference sample."
+  },
+  "correction": {
+    "target_dragging_steps": 27,
+    "n_slow": 9,
+    "n_fast": 1,
+    "required_fast_block_factor": 243,
+    "formula": "round(f_fast*n_fast/n_slow)=round(243*1/9)=27",
+    "proposal_covariance_changed": false,
+    "coordinate_map_changed": false,
+    "target_distribution_changed": false,
+    "learn_proposal": false,
+    "drag": true,
+    "blocking": [
+      [1, ["q_H","omega_b","omega_dm","logA","n_s","tau_reio","Omega_scf","rims_alpha_U","rims_shell_u_i"]],
+      [243, ["A_planck"]]
+    ],
+    "tested_proposal_scales": [4.0,4.8,5.7],
+    "minutes_per_scale": 18,
+    "four_fresh_MPI_chains_per_scale": true,
+    "required_runtime_marker": "* 27 : (['A_planck'],)"
+  },
+  "selection_rule": {
+    "aggregate_acceptance_interval": [0.20,0.50],
+    "per_chain_acceptance_interval": [0.10,0.65],
+    "minimum_distinct_rows_per_chain": 10,
+    "choose": "Among passing scales choose aggregate acceptance closest to 0.30; tie -> lower scale. If none pass, stop."
+  },
+  "automatic_follow_on": false,
+  "automatic_long_run": false,
+  "sentinel_samples_eligible_for_inference": false,
+  "production_gate": {
+    "GetDist_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000.0,
+    "unchanged": true
+  },
+  "claim_boundary": {
+    "production_posterior": false,
+    "Bayes_factor": false,
+    "model_preference": false,
+    "LambdaCDM_competitiveness_verified": false
+  }
+}
