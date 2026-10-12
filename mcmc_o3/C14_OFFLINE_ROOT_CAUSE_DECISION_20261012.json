@@ -1,0 +1,80 @@
+{
+  "schema": "rims-phaseii-o3-c14-read-only-root-cause-decision-v1",
+  "date": "2026-10-12",
+  "stage": "offline_diagnostic_replay_only",
+  "source": {
+    "c13b_run_id": 38189596230,
+    "c13b_head_sha": "a8db04bc5f7b56545117ad95e7f9a6be96f974b5",
+    "c13b_artifact_id": 11722456978,
+    "c13b_zip_sha256": "acede0104b59aa72e177b6e056b954760bf5c1225d5692371e432359825430e3",
+    "c13b_embedded_checksum_files_verified": 44,
+    "c12_run_id": 37874107719,
+    "c12_drag_ridge_zip_sha256": "85f5fa21630d9827295bd3b8279a732638996dddcd2ba9752f52f5e953912a81"
+  },
+  "reconstruction": {
+    "fractional_weight_expansion": true,
+    "integer_Cobaya_weight_replay": true,
+    "last_vs_first_quarter_mean_chi2_change": {
+      "scale_4_0": [
+        -24.5,
+        -28.78,
+        -6.01,
+        -42.82
+      ],
+      "scale_4_8": [
+        -20.11,
+        -6.57,
+        -2.14,
+        -13.43
+      ],
+      "scale_5_7": [
+        -3.41,
+        -7.52,
+        -2.86,
+        -4.32
+      ]
+    },
+    "scale_4_0_last_quarter_chain_mean_chi2_range": 42.294,
+    "scale_4_0_initial_Mahalanobis_to_initial_mean_proposal_units": [
+      6,
+      20.6,
+      9,
+      15.2
+    ],
+    "scale_4_0_between_within_leading_eigenvalue_approx": 188.9,
+    "scale_4_0_max_chain_mean_span_within_sigma": {
+      "parameter": "A_planck",
+      "value": 7.47
+    },
+    "scale_4_0_min_leave_one_out_narrow_eigenvector_cosine": 0.978,
+    "scale_4_0_split_half_correlation_frobenius_difference_range": [
+      5.87,
+      9.79
+    ],
+    "fixed_target_equivalent_c12_c13b": true,
+    "observations_retrospective_not_predeclared_statistical_tests": true,
+    "interpretation": "All 12 c13b chains show lower average chi2 in their last quarter than first quarter; none establishes equilibration. Pooling and split-half covariance estimates can disagree strongly. No causal attribution from unmatched c12 versus c13b."
+  },
+  "decision": {
+    "source_artifact_integrity": "PASS",
+    "runtime_27step_logging": "PASS",
+    "production_convergence": "FAIL",
+    "stationarity_supported": false,
+    "matched_3step_vs_27step_efficiency_test_performed": false,
+    "covariance_fit_from_these_short_chains_allowed": false,
+    "current_inference_sample_promotion_allowed": false,
+    "next_stage": "Predeclare a separately authorized, matched-budget initialization/transport study with independent overdispersed start validation, slow theory evaluation counts, held-out covariance and target-preserving slow ridge moves."
+  },
+  "guardrails": {
+    "new_actions_run_launched": false,
+    "workflow_added": false,
+    "automatic_follow_on": false,
+    "automatic_long_run": false,
+    "production_GetDist_Rminus1_lt": 0.01,
+    "production_minimum_headline_ESS_ge": 1000,
+    "production_posterior_claim": false,
+    "Bayes_factor_claim": false,
+    "model_preference_claim": false,
+    "LambdaCDM_competitiveness_claim": false
+  }
+}
