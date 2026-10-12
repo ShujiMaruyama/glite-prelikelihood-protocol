@@ -5,7 +5,7 @@
   "source_c15_package_sha256": "2808be393e3e493c60bcb32eabd610d0a124f776fcb68361ac952aa8147a807b",
   "source_c13b_artifact_sha256": "acede0104b59aa72e177b6e056b954760bf5c1225d5692371e432359825430e3",
   "frozen_c13b_resolved_target_digest": "518909ad2f1b31fd6882aebf0325d6604ae9626f353827d94aa916c5fa4368b9",
-  "deliverable_zip_sha256": "43218f0923933bb23b0cccaa75d0d91b5810094930c8365a935053491c87651f",
+  "deliverable_zip_sha256": "d28233c2a3096a76a85b29f5878930d0ceef29e9d702c4bf8e924ad2790720a6",
   "implemented_diagnostic": {
     "method": "Python subclass override of Cython Class.compute via Cobaya CLASS module loader; delegates to parent",
     "classes": [
@@ -21,8 +21,8 @@
   },
   "local_unit_test_summary": {
     "c15_passed": 6,
-    "c16_passed": 12,
-    "total_passed": 18,
+    "c16_passed": 13,
+    "total_passed": 19,
     "real_CLASS_tests": 0
   },
   "unresolved_hard_gates": [
