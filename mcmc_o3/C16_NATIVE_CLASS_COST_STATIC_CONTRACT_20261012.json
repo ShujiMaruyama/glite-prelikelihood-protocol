@@ -1,0 +1,52 @@
+{
+  "schema": "rims-phaseii-o3-c16-native-cost-checkpoint-v2",
+  "created_on": "2026-10-12",
+  "stage": "offline_static_instrumentation_only",
+  "source_c15_package_sha256": "2808be393e3e493c60bcb32eabd610d0a124f776fcb68361ac952aa8147a807b",
+  "source_c13b_artifact_sha256": "acede0104b59aa72e177b6e056b954760bf5c1225d5692371e432359825430e3",
+  "frozen_c13b_resolved_target_digest": "518909ad2f1b31fd6882aebf0325d6604ae9626f353827d94aa916c5fa4368b9",
+  "deliverable_zip_sha256": "43218f0923933bb23b0cccaa75d0d91b5810094930c8365a935053491c87651f",
+  "implemented_diagnostic": {
+    "method": "Python subclass override of Cython Class.compute via Cobaya CLASS module loader; delegates to parent",
+    "classes": [
+      "normalization_background",
+      "full_CMB_BAO_prediction"
+    ],
+    "separate_attempt_success_failure_duration": true,
+    "append_only_per_process_jsonl": true,
+    "resolved_target_hash_and_initial_point_preflight_supported": true,
+    "source_RIMS_class_modified": false,
+    "likelihood_prior_modified": false,
+    "rejected_alternative": "sys.setprofile c_call misses independent Cython cpdef Class.compute stub"
+  },
+  "local_unit_test_summary": {
+    "c15_passed": 6,
+    "c16_passed": 12,
+    "total_passed": 18,
+    "real_CLASS_tests": 0
+  },
+  "unresolved_hard_gates": [
+    "pinned V18.29 CLASS native subclass compatibility",
+    "numerical equivalence measured vs uninstrumented CLASS",
+    "8 static starts real finite CLASS/likelihood",
+    "resolved runtime target equals c13b baseline",
+    "validated per-chain native compute counts and time",
+    "instrumentation overhead quantified",
+    "matched 3/27 arms fixed CLASS call budget and statistical stationarity"
+  ],
+  "workflow_created": false,
+  "new_GitHub_Actions_run_launched": false,
+  "automatic_follow_on": false,
+  "automatic_long_run": false,
+  "eligible_for_inference": false,
+  "production_gate": {
+    "GetDist_Rminus1_strict_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000
+  },
+  "claim_boundary": {
+    "production_posterior": false,
+    "Bayes_factor": false,
+    "model_preference": false,
+    "LambdaCDM_competitiveness": false
+  }
+}
