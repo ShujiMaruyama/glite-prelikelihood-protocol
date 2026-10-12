@@ -1,0 +1,100 @@
+{
+  "schema": "rims-phaseii-o3-c15-matched-control-static-design-v1",
+  "date": "2026-10-12",
+  "stage": "static_preflight_only",
+  "source": {
+    "c13b_run_id": 38189596230,
+    "c13b_artifact_zip_sha256": "acede0104b59aa72e177b6e056b954760bf5c1225d5692371e432359825430e3",
+    "c13b_44_manifest_files_verified": true,
+    "inherited_planck_calibration_prior": {
+      "dist": "norm",
+      "loc": 1,
+      "scale": 0.0025
+    }
+  },
+  "frozen_geometry": {
+    "proposal_covariance_sha256": "543c014fa0ba20d0219afeca339b34e473661940d8ff0fde8b9fe2b1c270da9b",
+    "target_view_sha256": "275d9cfaa014e975f6dd44961ab962a5b4cc0d2adf834e5ad437504b779847c0",
+    "proposal_scale": 4,
+    "learned_proposal": false,
+    "n_slow": 9,
+    "n_fast": 1
+  },
+  "design": {
+    "panels": {
+      "independent_reference_LHS": {
+        "starts": 4,
+        "origin": "fixed independent reference-normal quantiles 0.125 0.375 0.625 0.875 with parameterwise seeded shuffles",
+        "full_prior_basin_coverage_claim": false,
+        "prior_interior_and_determinism_verified": true,
+        "physical_likelihood_validity_verified": false,
+        "pairwise_proposal_Mahalanobis_distance_range": [
+          21.383,
+          44.847
+        ]
+      },
+      "c13b_last_state_local_conditional": {
+        "starts": 4,
+        "origin": "last recorded accepted state in each c13b scale 4.0 chain",
+        "independent_start_claim": false,
+        "eligible_for_inference": false,
+        "pairwise_proposal_Mahalanobis_distance_range": [
+          7.993,
+          35.579
+        ]
+      }
+    },
+    "arms": {
+      "drag3": {
+        "manual_fast_block_factor": 27,
+        "interpolation_steps_predicted": 3
+      },
+      "drag27": {
+        "manual_fast_block_factor": 243,
+        "interpolation_steps_predicted": 27
+      }
+    },
+    "per_pair_starts_identical": true,
+    "per_arm_random_streams_distinct": true,
+    "generated_yaml_count": 16,
+    "freezing_sampling_coordinate_mapping": true,
+    "posterior_inference_allowed": false
+  },
+  "local_verification": {
+    "generator_and_fail_closed_telemetry_auditor_written": true,
+    "unit_tests": "6 passed",
+    "deterministic_regeneration_identical": true,
+    "source_checksum_pass": true,
+    "proposal_SPD_pass": true,
+    "target_prior_digest_static_match": true,
+    "mutation_detection_pass": true,
+    "runtime_Cobaya_target_expansion_match": false,
+    "runtime_CLASS_and_likelihood_start_validity": false,
+    "actual_uncached_CLASS_evaluation_counter_implemented": false,
+    "matched_3step_vs_27step_run_executed": false
+  },
+  "comparison_guards": {
+    "require_identical_start_state_hashes": true,
+    "require_frozen_matched_target_and_covmat": true,
+    "require_observed_slow_CLASS_calculation_count": true,
+    "class_calls_relative_difference_max": 0.05,
+    "record_wall_seconds_and_all_chain_diagnostics": true,
+    "no_unmatched_cost_comparison": true,
+    "no_cherry_picked_invalid_start_points": true,
+    "forbid_causal_27step_claim_until_budget_matched": true
+  },
+  "workflow_created": false,
+  "actions_dispatch_performed": false,
+  "automatic_long_run": false,
+  "automatic_follow_on": false,
+  "production_gate": {
+    "GetDist_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000
+  },
+  "claim_boundary": {
+    "production_posterior": false,
+    "Bayes_factor": false,
+    "model_preference": false,
+    "LambdaCDM_competitiveness": false
+  }
+}
