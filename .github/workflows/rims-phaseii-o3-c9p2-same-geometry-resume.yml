@@ -1,0 +1,333 @@
+name: RIMS Phase II O3 c9p2 same-geometry production continuation
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: rims-phaseii-o3-c9p2-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  run-gate:
+    runs-on: ubuntu-latest
+    outputs:
+      execute: ${{ steps.gate.outputs.execute }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 2}
+      - id: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "execute=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          head_sha="${{ github.event.pull_request.head.sha }}"
+          git fetch --no-tags --depth=1 origin "$head_sha" || true
+          msg="$(git show -s --format=%B "$head_sha")"
+          printf 'head=%s\n%s\n' "$head_sha" "$msg"
+          if grep -Fq '[RIMS-C9P2-RUN]' <<<"$msg"; then
+            echo "execute=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "execute=false" >> "$GITHUB_OUTPUT"
+            echo "No [RIMS-C9P2-RUN] marker: c9p2 is intentionally dormant."
+          fi
+
+  config-audit:
+    needs: run-gate
+    if: needs.run-gate.outputs.execute == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit predeclared c9p1 to c9p2 rule
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('mcmc_o3/C9P1_TO_C9P2_PREDECLARED_CONTINUATION_20260907.json')
+          d=json.loads(p.read_text())
+          assert d['frozen_before_c9p1_results'] is True
+          assert d['c9p1_run_id']==34096706561
+          assert d['observed_at_freeze']['c9p1_posterior_diagnostics_available'] is False
+          assert d['production_gate']['GetDist_Rminus1_lt']==0.01
+          assert d['production_gate']['minimum_headline_ESS_ge']==1000.0
+          assert d['if_gate_not_yet_passes']['segment_minutes']==90
+          print('c9p2 predeclared continuation rule PASS')
+          PY
+
+  mcmc:
+    needs: [run-gate, config-audit]
+    if: needs.run-gate.outputs.execute == 'true'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - {model: scalar, chain_root: scalar_c9, yaml_name: scalar_exp_c9_preconditioned.yaml}
+          - {model: rims, chain_root: rims_c9, yaml_name: rims_exp_shell_c9_preconditioned.yaml}
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      OMP_NUM_THREADS: 1
+      OPENBLAS_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
+      PYTHONUNBUFFERED: 1
+      MODEL: ${{ matrix.model }}
+      CHAIN_ROOT: ${{ matrix.chain_root }}
+      YAML_NAME: ${{ matrix.yaml_name }}
+      PRIOR_RUN_ID: "34096706561"
+      SEGMENT_MINUTES: "90"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct pinned RIMS V18.29 CLASS source
+        run: |
+          set -euo pipefail
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > rims_o3_patch/V18_23_TO_V18_29.patch
+          test "$(sha256sum rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff | awk '{print $1}')" = "6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74"
+          test "$(sha256sum rims_o3_patch/V18_23_TO_V18_29.patch | awk '{print $1}')" = "c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc"
+          git clone https://github.com/lesgourg/class_public.git class_public
+          cd class_public
+          git checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          git apply ../rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          git apply ../rims_o3_patch/V18_23_TO_V18_29.patch
+          git diff --check
+          git rev-parse HEAD > ../CLASS_UPSTREAM_COMMIT.txt
+          git diff > ../RIMS_V18_29_RECONSTRUCTED.diff
+
+      - name: Install CLASS and inference stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openmpi-bin libopenmpi-dev
+          python -m pip install --upgrade pip
+          python -m pip install 'cython<4' 'numpy==2.5.3' scipy pandas pyyaml getdist mpi4py 'cobaya==3.6.2'
+          (cd class_public && python setup.py build)
+          python -m pip install -e ./class_public
+
+      - name: Cache matched likelihood packages
+        uses: actions/cache@v4
+        with:
+          path: packages
+          key: cobaya-3.6.2-planck2018-desi-dr2-pantheonplus-o3-v2
+
+      - name: Install or verify matched likelihood data
+        run: |
+          cobaya-install planck_2018_lowl.TT planck_2018_lowl.EE planck_2018_highl_plik.TTTEEE_lite_native bao.desi_dr2 sn.pantheonplus -p packages
+
+      - name: Recover and verify c9p1 parent artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf _prior c9_runtime chains_c9 parent_snapshot
+          mkdir -p _prior c9_runtime parent_snapshot
+          gh run download "$PRIOR_RUN_ID" -n "rims-phaseii-o3-${MODEL}-c9p1-v2" -D _prior
+          test -s _prior/SHA256SUMS.txt
+          (cd _prior && sha256sum -c SHA256SUMS.txt)
+
+          test -s "_prior/C9_EXECUTION_CONTRACT_${MODEL}.json"
+          test -s "_prior/C9_SENTINEL_${MODEL}.json"
+          test -s "_prior/${MODEL}_c9_precond.covmat"
+          test -s "_prior/${MODEL}_c9_precond_meta.json"
+          test -s "_prior/${YAML_NAME}"
+          test -d _prior/chains_c9
+
+          cp "_prior/${YAML_NAME}" "c9_runtime/${YAML_NAME}"
+          cp "_prior/${MODEL}_c9_precond.covmat" "c9_runtime/${MODEL}_c9_precond.covmat"
+          cp "_prior/${MODEL}_c9_precond_meta.json" "c9_runtime/${MODEL}_c9_precond_meta.json"
+          [ -s "_prior/GEOMETRY_AUDIT_${MODEL}.json" ] && cp "_prior/GEOMETRY_AUDIT_${MODEL}.json" c9_runtime/
+
+          echo "YAML=c9_runtime/${YAML_NAME}" >> "$GITHUB_ENV"
+
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          model=os.environ['MODEL']; yname=os.environ['YAML_NAME']
+          c=json.loads(Path(f'_prior/C9_EXECUTION_CONTRACT_{model}.json').read_text())
+          m=json.loads(Path(f'_prior/{model}_c9_precond_meta.json').read_text())
+          s=json.loads(Path(f'_prior/C9_SENTINEL_{model}.json').read_text())
+          assert c['schema']=='rims-phaseii-o3-c9-execution-contract-v2'
+          assert c['target_distribution_changed'] is False
+          assert c['coordinate_map_changed_from_c8'] is False
+          assert c['sentinel_discarded'] is True
+          assert abs(float(c['proposal_scale'])-2.4)<1e-12
+          assert c['learn_proposal'] is False
+          assert c['production_gate']['GetDist_Rminus1_lt']==0.01
+          assert c['production_gate']['minimum_headline_ESS_ge']==1000.0
+          assert 0.15 <= float(s['acceptance']) <= 0.60
+          assert all(0.10 <= float(v['acceptance']) <= 0.70 for v in s['chains'].values())
+          assert m['numeric_contract']['min_corr_eig']>=0.10
+          assert m['numeric_contract']['corr_condition']<=25.0
+          for key,expected in c['sha256'].items():
+              base=Path(key).name
+              p=Path('_prior')/base
+              if p.exists():
+                  got=hashlib.sha256(p.read_bytes()).hexdigest()
+                  assert got==expected,(base,got,expected)
+          print('c9p1 execution contract + geometry + sentinel PASS')
+          PY
+
+      - name: Preflight exact c9 target before restoring chains
+        run: |
+          set -euo pipefail
+          rm -rf chains_c9
+          cobaya-run "$YAML" --test
+          rm -rf chains_c9
+
+      - name: Restore four-chain parent and freeze exact prefix state
+        run: |
+          set -euo pipefail
+          cp -a _prior/chains_c9 chains_c9
+          cp -a _prior/chains_c9 parent_snapshot/chains_c9
+          rm -f "chains_c9/${CHAIN_ROOT}.input.yaml.locked"
+          test -s "chains_c9/${CHAIN_ROOT}.checkpoint"
+          test -s "chains_c9/${CHAIN_ROOT}.input.yaml"
+          test -s "chains_c9/${CHAIN_ROOT}.updated.yaml"
+          test "$(find chains_c9 -maxdepth 1 -name "${CHAIN_ROOT}.[1-4].txt" | wc -l)" -eq 4
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          import numpy as np
+          root=os.environ['CHAIN_ROOT']; model=os.environ['MODEL']
+          out={'schema':'rims-phaseii-o3-c9p1-parent-prefix-v1','model':model,'parent_run':int(os.environ['PRIOR_RUN_ID']),'chains':{}}
+          for i in range(1,5):
+              p=Path('chains_c9')/f'{root}.{i}.txt'
+              a=np.loadtxt(p); a=a[None,:] if a.ndim==1 else a
+              assert len(a)>0
+              out['chains'][str(i)]={'rows':int(len(a)),'weight_sum':float(a[:,0].sum()),'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
+          Path(f'C9P1_PARENT_PREFIX_{model}.json').write_text(json.dumps(out,indent=2))
+          print(json.dumps(out,indent=2))
+          PY
+
+      - name: Freeze c9p2 continuation execution contract
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,subprocess
+          from pathlib import Path
+          model=os.environ['MODEL']
+          d={
+            'schema':'rims-phaseii-o3-c9p2-continuation-contract-v1',
+            'model':model,
+            'parent_run':int(os.environ['PRIOR_RUN_ID']),
+            'parent_artifact':f'rims-phaseii-o3-{model}-c9p1-v2',
+            'resume_same_four_chains':True,
+            'target_distribution_changed':False,
+            'coordinate_map_changed':False,
+            'proposal_covariance_changed':False,
+            'proposal_scale_changed':False,
+            'proposal_scale':2.4,
+            'learn_proposal':False,
+            'segment_minutes':90,
+            'production_gate':{'GetDist_Rminus1_lt':0.01,'minimum_headline_ESS_ge':1000.0},
+            'git_head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+            'parent_manifest_sha256':hashlib.sha256(Path('_prior/SHA256SUMS.txt').read_bytes()).hexdigest(),
+            'predeclared_rule_sha256':hashlib.sha256(Path('mcmc_o3/C9P1_TO_C9P2_PREDECLARED_CONTINUATION_20260907.json').read_bytes()).hexdigest()
+          }
+          Path(f'C9P2_CONTINUATION_CONTRACT_{model}.json').write_text(json.dumps(d,indent=2))
+          print(json.dumps(d,indent=2))
+          PY
+
+      - name: Resume same four c9 chains for one bounded c9p2 segment
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          set +e
+          timeout --signal=INT --kill-after=60s "${SEGMENT_MINUTES}m" \
+            mpirun --oversubscribe -np 4 cobaya-run "$YAML" --resume \
+            2>&1 | tee "o3_${MODEL}_c9p2.log"
+          rc=${PIPESTATUS[0]}
+          set -e
+          echo "$rc" > "o3_${MODEL}_c9p2_exit_code.txt"
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] && [ "$rc" -ne 130 ]; then
+            echo "unexpected_sampler_exit=$rc" > "SAMPLER_FATAL_${MODEL}.flag"
+          fi
+          exit 0
+
+      - name: Verify exact parent prefix and added production work
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          import numpy as np
+          model=os.environ['MODEL']; root=os.environ['CHAIN_ROOT']
+          out={'schema':'rims-phaseii-o3-c9p2-prefix-audit-v1','model':model,'chains':{},'prefix_exact_all':True,'all_chains_added_rows':True}
+          for i in range(1,5):
+              p=Path('parent_snapshot/chains_c9')/f'{root}.{i}.txt'
+              c=Path('chains_c9')/f'{root}.{i}.txt'
+              assert p.exists() and c.exists()
+              pa=np.loadtxt(p); ca=np.loadtxt(c)
+              pa=pa[None,:] if pa.ndim==1 else pa
+              ca=ca[None,:] if ca.ndim==1 else ca
+              exact=len(ca)>=len(pa) and np.array_equal(ca[:len(pa)],pa)
+              added=ca[len(pa):] if exact else np.empty((0,ca.shape[1]))
+              w=float(added[:,0].sum()) if len(added) else 0.0
+              rec={'parent_rows':int(len(pa)),'current_rows':int(len(ca)),'added_rows':int(len(added)),'added_weight_sum':w,'added_acceptance_estimate':float(len(added)/w) if w>0 else None,'prefix_exact':bool(exact)}
+              out['chains'][str(i)]=rec
+              out['prefix_exact_all'] &= bool(exact)
+              out['all_chains_added_rows'] &= bool(len(added)>0)
+          Path(f'C9P2_PREFIX_AUDIT_{model}.json').write_text(json.dumps(out,indent=2))
+          print(json.dumps(out,indent=2))
+          assert out['prefix_exact_all']
+          assert out['all_chains_added_rows']
+          PY
+
+      - name: Analyze c9p2 convergence and transport
+        if: ${{ always() }}
+        run: |
+          set +e
+          ROOT="chains_c9/${CHAIN_ROOT}"
+          python mcmc_o3/analyze_o3_chains.py --model "$MODEL" --root "$ROOT" --out "analysis_${MODEL}_c9p2" || true
+          python mcmc_o3/audit_transport.py --model "$MODEL" --root "$ROOT" --parent-root "parent_snapshot/chains_c9/${CHAIN_ROOT}" --out "transport_${MODEL}_c9p2.json" || true
+
+      - name: Package c9p2 continuation checkpoint
+        if: ${{ always() }}
+        run: |
+          set +e
+          rm -rf artifact && mkdir artifact
+          for f in CLASS_UPSTREAM_COMMIT.txt RIMS_V18_29_RECONSTRUCTED.diff \
+            "c9_runtime/${YAML_NAME}" "c9_runtime/${MODEL}_c9_precond.covmat" "c9_runtime/${MODEL}_c9_precond_meta.json" \
+            "_prior/C9_EXECUTION_CONTRACT_${MODEL}.json" "_prior/C9_SENTINEL_${MODEL}.json" \
+            "C9P1_PARENT_PREFIX_${MODEL}.json" "C9P2_CONTINUATION_CONTRACT_${MODEL}.json" "C9P2_PREFIX_AUDIT_${MODEL}.json" \
+            "o3_${MODEL}_c9p2_exit_code.txt" "o3_${MODEL}_c9p2.log"; do
+            [ -e "$f" ] && cp "$f" artifact/
+          done
+          cp mcmc_o3/C9P1_TO_C9P2_PREDECLARED_CONTINUATION_20260907.json artifact/
+          for d in "analysis_${MODEL}_c9p2" chains_c9; do [ -e "$d" ] && cp -a "$d" artifact/; done
+          [ -e "transport_${MODEL}_c9p2.json" ] && cp "transport_${MODEL}_c9p2.json" artifact/
+          (cd artifact && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+
+      - name: Upload c9p2 checkpoint
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rims-phaseii-o3-${{ matrix.model }}-c9p2
+          path: artifact
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Final c9p2 status
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          test ! -f "SAMPLER_FATAL_${MODEL}.flag"
+          test -s "C9P2_PREFIX_AUDIT_${MODEL}.json"
+          test "$(find chains_c9 -maxdepth 1 -name "${CHAIN_ROOT}.[1-4].txt" | wc -l)" -eq 4
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          d=json.loads(Path(f'C9P2_PREFIX_AUDIT_{os.environ["MODEL"]}.json').read_text())
+          assert d['prefix_exact_all'] is True
+          assert d['all_chains_added_rows'] is True
+          print('c9p2 continuation integrity PASS')
+          PY

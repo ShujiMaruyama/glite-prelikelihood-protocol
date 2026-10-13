@@ -1,0 +1,368 @@
+name: RIMS Phase II O3 c8 fresh nonlinear-transport candidate
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: rims-phaseii-o3-c8-fresh-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  run-gate:
+    runs-on: ubuntu-latest
+    outputs:
+      execute: ${{ steps.gate.outputs.execute }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - id: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "execute=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          head_sha="${{ github.event.pull_request.head.sha }}"
+          git fetch --no-tags --depth=1 origin "$head_sha" || true
+          msg="$(git show -s --format=%B "$head_sha")"
+          printf 'PR head sha: %s\nHead commit message: %s\n' "$head_sha" "$msg"
+          if grep -Fq '[RIMS-C8-RUN]' <<<"$msg"; then
+            echo "execute=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "execute=false" >> "$GITHUB_OUTPUT"
+            echo "No [RIMS-C8-RUN] marker: expensive c8 jobs are intentionally skipped."
+          fi
+
+  config-audit:
+    needs: run-gate
+    if: needs.run-gate.outputs.execute == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit frozen c8 target and transport maps
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check numpy pyyaml
+          python -m py_compile \
+            rims_shell_classy.py \
+            mcmc_o3/analyze_o3_chains.py \
+            mcmc_o3/audit_transport.py \
+            mcmc_o3/c8_transport_map.py \
+            mcmc_o3/scalar_c8_transport_map.py \
+            mcmc_o3/test_c8_transport_map.py \
+            mcmc_o3/test_scalar_c8_transport_map.py \
+            mcmc_o3/audit_c8_target.py
+          (cd mcmc_o3 && python test_c8_transport_map.py)
+          (cd mcmc_o3 && python test_scalar_c8_transport_map.py)
+          python mcmc_o3/audit_c8_target.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('mcmc_o3/C7_TO_C8_DECISION_20260907.json').read_text())
+          assert d['decision']=='PROMOTE_FRESH_C8_NONLINEAR_TRANSPORT'
+          assert d['production_hygiene']['c8_is_fresh_four_chain_candidate'] is True
+          assert d['production_hygiene']['combine_c6_c7_with_c8_for_headline_posterior'] is False
+          assert d['production_hygiene']['target_distribution_changed'] is False
+          assert d['c7_artifacts']['rims']['chain2_Omega_scf']['tau_ratio_c7_over_c6'] > 0.95
+          print('c7->c8 decision record PASS')
+          PY
+          test "$(git hash-object mcmc_o3/scalar_exp.yaml)" = "607819370369a76e26ff1a6a657c9a6ae6005fe2"
+          test "$(git hash-object mcmc_o3/rims_exp_shell.yaml)" = "84e7dc34a101a63b5243a78921aa679cfc444595"
+          sha256sum \
+            mcmc_o3/scalar_exp_c8_transport.yaml \
+            mcmc_o3/rims_exp_shell_c8_transport.yaml \
+            mcmc_o3/scalar_c8_transport_map.py \
+            mcmc_o3/c8_transport_map.py \
+            mcmc_o3/C7_TO_C8_DECISION_20260907.json \
+            mcmc_o3/C7_C8_TRANSPORT_PROTOCOL.md
+          echo 'Target distribution: FROZEN; sampler coordinates only are changed.'
+          echo 'c8 hygiene: fresh four chains; no c6/c7 samples are appended or pooled.'
+          echo 'Production gate: GetDist R-1 < 0.01 AND minimum headline ESS >= 1000.'
+
+  mcmc:
+    needs: [run-gate, config-audit]
+    if: needs.run-gate.outputs.execute == 'true'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - model: scalar
+            yaml: scalar_exp_c8_transport
+            chain_root: scalar_c8
+          - model: rims
+            yaml: rims_exp_shell_c8_transport
+            chain_root: rims_c8
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      OMP_NUM_THREADS: 1
+      OPENBLAS_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
+      PYTHONUNBUFFERED: 1
+      MODEL: ${{ matrix.model }}
+      YAML: ${{ matrix.yaml }}
+      CHAIN_ROOT: ${{ matrix.chain_root }}
+      SEGMENT_MINUTES: "90"
+      C8_INDEX: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct pinned RIMS V18.29 CLASS source
+        run: |
+          set -euo pipefail
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > rims_o3_patch/V18_23_TO_V18_29.patch
+          test "$(sha256sum rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff | awk '{print $1}')" = "6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74"
+          test "$(sha256sum rims_o3_patch/V18_23_TO_V18_29.patch | awk '{print $1}')" = "c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc"
+          git clone https://github.com/lesgourg/class_public.git class_public
+          cd class_public
+          git checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          git apply ../rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          git apply ../rims_o3_patch/V18_23_TO_V18_29.patch
+          git diff --check
+          test "$(sha256sum include/background.h | awk '{print $1}')" = "e8e81760366064a2155e9f7678fe83cd470d3c9ce0508d2ea0712ef18ca15e11"
+          test "$(sha256sum include/perturbations.h | awk '{print $1}')" = "bd6dbd4c1b90114b51c0f421fb9dae051df3c44666d0ba77f40f8af60818c2ea"
+          test "$(sha256sum source/background.c | awk '{print $1}')" = "28ed80d0b006990b983f3971f58d302858cfdcc7ee72156f1fe0668eee3af661"
+          test "$(sha256sum source/input.c | awk '{print $1}')" = "15e7360a997d957ac772e3cc48be42311371c73b1fc92d6ad3df5f1eae642c63"
+          test "$(sha256sum source/perturbations.c | awk '{print $1}')" = "928857ad4f19497d1ff07dae2df89c12659d7df2ea9aec0b70a20afb5eb842af"
+          test "$(sha256sum source/primordial.c | awk '{print $1}')" = "f24482c65a3495d637ebd87e401e7a81750989fa0be79180fe301ceb1077a34c"
+          git rev-parse HEAD > ../CLASS_UPSTREAM_COMMIT.txt
+          git diff > ../RIMS_V18_29_RECONSTRUCTED.diff
+
+      - name: Install CLASS and inference stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openmpi-bin libopenmpi-dev
+          python -m pip install --upgrade pip
+          python -m pip install 'cython<4' numpy scipy pandas pyyaml getdist mpi4py 'cobaya==3.6.2'
+          (cd class_public && python setup.py build)
+          python -m pip install -e ./class_public
+
+      - name: Cache matched likelihood packages
+        uses: actions/cache@v4
+        with:
+          path: packages
+          key: cobaya-3.6.2-planck2018-desi-dr2-pantheonplus-o3-v2
+
+      - name: Install or verify matched likelihood data
+        run: |
+          cobaya-install \
+            planck_2018_lowl.TT \
+            planck_2018_lowl.EE \
+            planck_2018_highl_plik.TTTEEE_lite_native \
+            bao.desi_dr2 \
+            sn.pantheonplus \
+            -p packages
+
+      - name: Fresh c8 theory plus likelihood preflight
+        run: |
+          set -euo pipefail
+          rm -rf chains_c8
+          cobaya-run "mcmc_o3/${YAML}.yaml" --test
+          rm -rf chains_c8
+          echo 'Fresh transformed preflight PASS; no parent chains restored.'
+
+      - name: Freeze c8 execution contract
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          model=os.environ['MODEL']; y=os.environ['YAML']
+          files=[
+            f'mcmc_o3/{y}.yaml',
+            'mcmc_o3/c8_transport_map.py',
+            'mcmc_o3/scalar_c8_transport_map.py',
+            'mcmc_o3/C7_TO_C8_DECISION_20260907.json',
+            'mcmc_o3/C7_C8_TRANSPORT_PROTOCOL.md',
+            'mcmc_o3/audit_c8_target.py',
+          ]
+          hashes={p:hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in files}
+          d={
+            'schema':'rims-phaseii-o3-c8-execution-contract-v1',
+            'model':model,
+            'fresh_chain':True,
+            'uses_parent_samples':False,
+            'coordinate_change_only':True,
+            'target_distribution_changed':False,
+            'H0_original_prior':[55.0,82.0],
+            'q_H_periodic_prior':[0.0,1.0],
+            'proposal_scale':2.4,
+            'segment_minutes':90,
+            'production_gate':{'GetDist_Rminus1_lt':0.01,'minimum_headline_ESS_ge':1000.0},
+            'git_head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+            'sha256':hashes,
+          }
+          Path(f'C8_EXECUTION_CONTRACT_{model}.json').write_text(json.dumps(d,indent=2))
+          print(json.dumps(d,indent=2))
+          PY
+
+      - name: Run fresh four-chain c8 bounded segment
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          set +e
+          test ! -d chains_c8
+          timeout --signal=INT --kill-after=60s "${SEGMENT_MINUTES}m" \
+            mpirun --oversubscribe -np 4 \
+            cobaya-run "mcmc_o3/${YAML}.yaml" \
+            2>&1 | tee "o3_${MODEL}_c8p1.log"
+          rc=${PIPESTATUS[0]}
+          set -e
+          echo "$rc" > "o3_${MODEL}_c8p1_exit_code.txt"
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] && [ "$rc" -ne 130 ]; then
+            echo "unexpected_sampler_exit=$rc" > "SAMPLER_FATAL_${MODEL}.flag"
+          fi
+          exit 0
+
+      - name: Analyze fresh c8 checkpoint and transport
+        if: ${{ always() }}
+        run: |
+          set +e
+          ROOT="chains_c8/${CHAIN_ROOT}"
+          n=$(find chains_c8 -maxdepth 1 -name "${CHAIN_ROOT}.[1-4].txt" 2>/dev/null | wc -l)
+          if [ "$n" -ge 2 ]; then
+            python mcmc_o3/analyze_o3_chains.py \
+              --model "$MODEL" \
+              --root "$ROOT" \
+              --out "analysis_${MODEL}_c8p1" || true
+            python mcmc_o3/audit_transport.py \
+              --model "$MODEL" \
+              --root "$ROOT" \
+              --out "transport_${MODEL}_c8p1.json" || true
+          fi
+          python - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          import numpy as np
+          model=os.environ['MODEL']; root=os.environ['CHAIN_ROOT']
+          out={'schema':'rims-phaseii-o3-c8p1-segment-audit-v1','model':model,'fresh_chain':True,'chains':{}}
+          rows=0; weights=0.0
+          for i in range(1,5):
+              p=Path('chains_c8')/f'{root}.{i}.txt'
+              if not p.exists():
+                  out['chains'][str(i)]={'exists':False}
+                  continue
+              names=p.open().readline().strip()[1:].split()
+              a=np.loadtxt(p)
+              if a.ndim==1: a=a[None,:]
+              r=int(a.shape[0]); w=float(a[:,0].sum())
+              rows+=r; weights+=w
+              first={}
+              for name in ['q_H','H0','Omega_scf','rims_alpha_U','rims_shell_u_i']:
+                  if name in names:
+                      first[name]=float(a[0,names.index(name)])
+              out['chains'][str(i)]={'exists':True,'distinct_rows':r,'weight_sum':w,'acceptance_estimate':r/w if w>0 else None,'first_saved_sample':first}
+          out['distinct_rows_total']=rows
+          out['markov_weight_total']=weights
+          out['acceptance_estimate']=rows/weights if weights>0 else None
+          log=Path(f'o3_{model}_c8p1.log')
+          text=log.read_text(errors='replace') if log.exists() else ''
+          rr=[float(x) for x in re.findall(r'Convergence of means: R-1 =\s*([0-9.eE+-]+)',text)]
+          acc=[float(x) for x in re.findall(r'Acceptance rate:\s*([0-9.]+)',text)]
+          out['sampler_Rminus1_last_logged']=rr[-1] if rr else None
+          out['logged_acceptance_last']=acc[-1] if acc else None
+          Path(f'c8p1_segment_audit_{model}.json').write_text(json.dumps(out,indent=2))
+          print(json.dumps(out,indent=2))
+          PY
+
+      - name: Package c8 checkpoint before final status
+        if: ${{ always() }}
+        run: |
+          set +e
+          rm -rf artifact
+          mkdir -p artifact
+          cp CLASS_UPSTREAM_COMMIT.txt RIMS_V18_29_RECONSTRUCTED.diff artifact/
+          cp rims_o3_patch/SOURCE_HASH_CONTRACT.json artifact/
+          cp "mcmc_o3/${YAML}.yaml" artifact/
+          cp mcmc_o3/c8_transport_map.py mcmc_o3/scalar_c8_transport_map.py artifact/
+          cp mcmc_o3/test_c8_transport_map.py mcmc_o3/test_scalar_c8_transport_map.py artifact/
+          cp mcmc_o3/audit_c8_target.py mcmc_o3/C8_TARGET_AUDIT.json artifact/ 2>/dev/null
+          cp mcmc_o3/C7_TO_C8_DECISION_20260907.json mcmc_o3/C7_C8_TRANSPORT_PROTOCOL.md artifact/
+          cp rims_shell_classy.py mcmc_o3/analyze_o3_chains.py mcmc_o3/audit_transport.py artifact/
+          cp "C8_EXECUTION_CONTRACT_${MODEL}.json" "o3_${MODEL}_c8p1.log" "o3_${MODEL}_c8p1_exit_code.txt" artifact/
+          cp "c8p1_segment_audit_${MODEL}.json" artifact/ 2>/dev/null
+          cp "transport_${MODEL}_c8p1.json" artifact/ 2>/dev/null
+          cp "SAMPLER_FATAL_${MODEL}.flag" artifact/ 2>/dev/null
+          cp -r chains_c8 artifact/ 2>/dev/null
+          cp -r "analysis_${MODEL}_c8p1" artifact/ 2>/dev/null
+          python - <<'PY'
+          import json, os, platform, subprocess, sys
+          from pathlib import Path
+          model=os.environ['MODEL']
+          rcfile=Path(f'o3_{model}_c8p1_exit_code.txt')
+          rc=int(rcfile.read_text().strip()) if rcfile.exists() else None
+          meta={
+            'schema':'rims-phaseii-o3-c8-fresh-transport-v1',
+            'python':sys.version,
+            'platform':platform.platform(),
+            'model':model,
+            'c8_segment_index':1,
+            'segment_minutes':90,
+            'fresh_chain':True,
+            'continuation_of_run':None,
+            'uses_c6_c7_samples':False,
+            'sampler_exit_code':rc,
+            'sampler_exit_is_expected_checkpoint':rc in (0,124,130),
+            'proposal_scale':2.4,
+            'learn_proposal':True,
+            'transport':'periodic measure-preserving H0 shear frozen from c6 diagnostic chains only',
+            'target_distribution_changed':False,
+            'production_gate':'GetDist R-1 < 0.01 AND minimum headline ESS >= 1000 for all matched models',
+            'claim_boundary':'Fresh production candidate only unless the frozen gate passes. No evidence/Bayes factor/model preference from incomplete c8 chains.',
+            'source_contract':{
+              'class_upstream_commit':'e85808324f51fc694d12e3ed7439552a3c3f9540',
+              'v18_23_patch_sha256':'6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74',
+              'v18_29_delta_sha256':'c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc'
+            }
+          }
+          try:
+              meta['pip_freeze']=subprocess.check_output([sys.executable,'-m','pip','freeze'],text=True).splitlines()
+          except Exception as exc:
+              meta['pip_freeze_error']=repr(exc)
+          Path('artifact/RUN_LINEAGE.json').write_text(json.dumps(meta,indent=2))
+          PY
+          (cd artifact && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+
+      - name: Upload c8 fresh checkpoint
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rims-phaseii-o3-${{ matrix.model }}-c8p1
+          path: artifact
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Final c8 checkpoint status
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          if [ -f "SAMPLER_FATAL_${MODEL}.flag" ]; then
+            cat "SAMPLER_FATAL_${MODEL}.flag"
+            exit 1
+          fi
+          n=$(find chains_c8 -maxdepth 1 -name "${CHAIN_ROOT}.[1-4].txt" | wc -l)
+          test "$n" -eq 4
+          test -s "c8p1_segment_audit_${MODEL}.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          model=os.environ['MODEL']
+          d=json.loads(Path(f'c8p1_segment_audit_{model}.json').read_text())
+          assert d['fresh_chain'] is True
+          assert all(d['chains'].get(str(i),{}).get('exists') for i in range(1,5))
+          print('c8 fresh four-chain checkpoint PASS')
+          print('c8 acceptance estimate:',d['acceptance_estimate'])
+          s=Path(f'analysis_{model}_c8p1/mcmc_summary.json')
+          if s.exists():
+              x=json.loads(s.read_text())
+              print('GetDist R-1:',x.get('getdist_Rminus1'))
+              print('minimum ESS:',x.get('minimum_parameter_ESS'))
+              print('production gate:',x.get('production_acceptance'))
+          PY
+          echo "c8 fresh checkpoint preserved for ${MODEL}."
