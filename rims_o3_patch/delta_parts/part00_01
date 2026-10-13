@@ -1,0 +1,194 @@
+--- a/include/background.h
++++ b/include/background.h
+@@ -123,6 +123,7 @@
+   short rims_enforce_stability;      /**< reject backgrounds with negative RIMS effective mass squared */
+   short rims_require_normalization;  /**< require phi(a=1)=rims_phi_ref within tolerance */
+   short rims_subleading_adiabatic_ic; /**< initialize the regular radiation-era scalar particular solution */
++  short rims_regular_standard_ic;   /**< embed the regular RIMS response in AD/CDI/BI/NID/NIV */
+   double rims_alpha_U;               /**< asymptotic dimensionless RIMS charge */
+   double rims_phi_transition;        /**< logistic transition field value in reduced-Planck units */
+   double rims_phi_ref;               /**< reference field value used to normalize the dark-matter mass */
+--- a/include/perturbations.h
++++ b/include/perturbations.h
+@@ -116,6 +116,8 @@
+   short has_cdi;     /**< do we need isocurvature cdi mode? */
+   short has_nid;     /**< do we need isocurvature nid mode? */
+   short has_niv;     /**< do we need isocurvature niv mode? */
++  short has_rie;     /**< do we need RIMS external energy-isocurvature mode? */
++  short has_rmi;     /**< do we need RIMS mass-number compensated mode? */
+ 
+   /* perturbed recombination */
+   /** Do we want to consider perturbed temperature and ionization fraction? */
+@@ -225,6 +227,8 @@
+   int index_ic_bi; /**< index value for baryon isocurvature */
+   int index_ic_nid; /**< index value for neutrino density isocurvature */
+   int index_ic_niv; /**< index value for neutrino velocity isocurvature */
++  int index_ic_rie; /**< index value for RIMS external energy isocurvature */
++  int index_ic_rmi; /**< index value for RIMS mass-number compensated mode */
+   int index_ic_ten; /**< index value for unique possibility for tensors */
+ 
+   int * ic_size;       /**< for a given mode, ic_size[index_md] = number of initial conditions included in computation */
+--- a/source/input.c
++++ b/source/input.c
+@@ -1781,7 +1781,7 @@
+   char * options_temp_contributions[10] = {"tsw","eisw","lisw","dop","pol","TSW","EISW","LISW","Dop","Pol"};
+   char * options_number_count[8] = {"density","dens","rsd","RSD","lensing","lens","gr","GR"};
+   char * options_modes[6] = {"s","v","t","S","V","T"};
+-  char * options_ics[10] = {"ad","bi","cdi","nid","niv","AD","BI","CDI","NID","NIV"};
++  char * options_ics[14] = {"ad","bi","cdi","nid","niv","rie","rmi","AD","BI","CDI","NID","NIV","RIE","RMI"};
+ 
+   /* Set local default values */
+   ppt->has_perturbations = _FALSE_;
+@@ -2022,15 +2022,21 @@
+         if ((strstr(string1,"niv") != NULL) || (strstr(string1,"NIV") != NULL)){
+           ppt->has_niv=_TRUE_;
+         }
++        if ((strstr(string1,"rie") != NULL) || (strstr(string1,"RIE") != NULL)){
++          ppt->has_rie=_TRUE_;
++        }
++        if ((strstr(string1,"rmi") != NULL) || (strstr(string1,"RMI") != NULL)){
++          ppt->has_rmi=_TRUE_;
++        }
+         /* Test */
+-        class_call(parser_check_options(string1, options_ics, 10, &flag1),
++        class_call(parser_check_options(string1, options_ics, 14, &flag1),
+                    errmsg,
+                    errmsg);
+         class_test(flag1==_FALSE_,
+-                   errmsg, "The options for 'ic' are {'ad','bi','cdi','nid','niv'}, you entered '%s'",string1);
+-        class_test(ppt->has_ad==_FALSE_ && ppt->has_bi ==_FALSE_ && ppt->has_cdi ==_FALSE_ && ppt->has_nid ==_FALSE_ && ppt->has_niv ==_FALSE_,
++                   errmsg, "The options for 'ic' are {'ad','bi','cdi','nid','niv','rie','rmi'}, you entered '%s'",string1);
++        class_test(ppt->has_ad==_FALSE_ && ppt->has_bi ==_FALSE_ && ppt->has_cdi ==_FALSE_ && ppt->has_nid ==_FALSE_ && ppt->has_niv ==_FALSE_ && ppt->has_rie ==_FALSE_ && ppt->has_rmi ==_FALSE_,
+                    errmsg,
+-                   "You specified 'ic' as '%s'. It has to contain some of {'ad','bi','cdi','nid','niv'}.",string1);
++                   "You specified 'ic' as '%s'. It has to contain some of {'ad','bi','cdi','nid','niv','rie','rmi'}.",string1);
+       }
+     }
+     else {
+@@ -3391,6 +3397,7 @@
+     class_read_flag("rims_enforce_stability",pba->rims_enforce_stability);
+     class_read_flag("rims_require_normalization",pba->rims_require_normalization);
+     class_read_flag("rims_subleading_adiabatic_ic",pba->rims_subleading_adiabatic_ic);
++    class_read_flag("rims_regular_standard_ic",pba->rims_regular_standard_ic);
+ 
+     class_test((isfinite(pba->rims_alpha_U) == 0) ||
+                (isfinite(pba->rims_phi_transition) == 0) ||
+@@ -3403,9 +3410,10 @@
+     class_test(pba->Omega0_scf == 0.,
+                errmsg,
+                "RIMS requires a canonical scalar field with Omega_scf != 0.");
+-    class_test(ppt->gauge != synchronous,
++    class_test((ppt->gauge != synchronous) &&
++               (ppt->gauge != newtonian),
+                errmsg,
+-               "RIMS V6 requires gauge=synchronous.");
++               "RIMS supports the synchronous and Newtonian scalar gauges.");
+     class_test(pba->Omega0_cdm <= ppr->Omega0_cdm_min_synchronous,
+                errmsg,
+                "RIMS V6 requires a nonzero uncoupled CDM gauge anchor.");
+@@ -3415,11 +3423,27 @@
+     class_test(ppt->has_Nbody_gauge_transfers == _TRUE_,
+                errmsg,
+                "RIMS V6 does not expose N-body-gauge transfer functions; use the native synchronous-gauge outputs.");
+-    class_test((ppt->has_ad == _FALSE_) || (ppt->has_bi == _TRUE_) ||
+-               (ppt->has_cdi == _TRUE_) || (ppt->has_nid == _TRUE_) ||
+-               (ppt->has_niv == _TRUE_),
++    class_test(((ppt->has_bi == _TRUE_) || (ppt->has_cdi == _TRUE_) ||
++                (ppt->has_nid == _TRUE_) || (ppt->has_niv == _TRUE_)) &&
++               (pba->rims_regular_standard_ic == _FALSE_),
++               errmsg,
++               "RIMS non-adiabatic standard modes require rims_regular_standard_ic=yes.");
++
++    class_test((ppt->has_rie == _TRUE_) && (ppt->has_rmi == _TRUE_),
++               errmsg,
++               "Select only one RIMS-specific entropy mode at a time: 'rie' or 'rmi'.");
++
++    class_test(((ppt->has_rie == _TRUE_) || (ppt->has_rmi == _TRUE_)) &&
++               ((ppt->has_ad == _TRUE_) || (ppt->has_bi == _TRUE_) ||
++                (ppt->has_cdi == _TRUE_) || (ppt->has_nid == _TRUE_) ||
++                (ppt->has_niv == _TRUE_)),
+                errmsg,
+-               "RIMS V6 currently supports the adiabatic scalar initial condition only.");
++               "RIMS-specific entropy modes are currently single-mode implementation tests and cannot be mixed with standard initial conditions.");
++
++    class_test(((ppt->has_rie == _TRUE_) || (ppt->has_rmi == _TRUE_)) &&
++               (pba->rims_alpha_U == 0.),
++               errmsg,
++               "RIMS-specific entropy modes require rims_alpha_U != 0.");
+     class_test((pth->a_idm_dr != 0.) || (pth->cross_idm_b != 0.) ||
+                (pth->cross_idm_g != 0.) || (pth->u_idm_g != 0.),
+                errmsg,
+@@ -3431,6 +3455,11 @@
+                errmsg,
+                "rims_stability_tolerance must be non-negative.");
+   }
++  else {
++    class_test((ppt->has_rie == _TRUE_) || (ppt->has_rmi == _TRUE_),
++               errmsg,
++               "The 'rie' and 'rmi' initial conditions require rims_enabled=yes.");
++  }
+ 
+   return _SUCCESS_;
+ 
+@@ -4253,7 +4282,7 @@
+       }
+ 
+       /** 1.b.1.1) Adiabatic perturbations */
+-      if (ppt->has_ad == _TRUE_) {
++      if ((ppt->has_ad == _TRUE_) || (ppt->has_rie == _TRUE_) || (ppt->has_rmi == _TRUE_)) {
+         /* Read */
+         class_read_double("n_s",ppm->n_s);
+         class_read_double("alpha_s",ppm->alpha_s);
+@@ -4739,7 +4768,7 @@
+     class_test(ppt->has_tensors == _FALSE_,
+                errmsg,
+                "inflationary module cannot work if you do not ask for tensor modes");
+-    class_test(ppt->has_bi == _TRUE_ || ppt->has_cdi == _TRUE_ || ppt->has_nid == _TRUE_ || ppt->has_niv == _TRUE_,
++    class_test(ppt->has_bi == _TRUE_ || ppt->has_cdi == _TRUE_ || ppt->has_nid == _TRUE_ || ppt->has_niv == _TRUE_ || ppt->has_rie == _TRUE_ || ppt->has_rmi == _TRUE_,
+                errmsg,
+                "inflationary module cannot work if you ask for isocurvature modes");
+   }
+@@ -5807,6 +5836,8 @@
+   ppt->has_cdi=_FALSE_;
+   ppt->has_nid=_FALSE_;
+   ppt->has_niv=_FALSE_;
++  ppt->has_rie=_FALSE_;
++  ppt->has_rmi=_FALSE_;
+   /** 3.b) Initial conditions for tensors */
+   ppt->tensor_method = tm_massless_approximation;
+   ppt->evolve_tensor_ur = _FALSE_;
+@@ -5994,6 +6025,7 @@
+   pba->rims_enforce_stability = _TRUE_;
+   pba->rims_require_normalization = _TRUE_;
+   pba->rims_subleading_adiabatic_ic = _TRUE_;
++  pba->rims_regular_standard_ic = _TRUE_;
+   pba->rims_alpha_U = 0.;
+   pba->rims_phi_transition = 0.;
+   pba->rims_phi_ref = 0.;
+--- a/source/perturbations.c
++++ b/source/perturbations.c
+@@ -663,6 +663,15 @@
+     strcpy(ic_suffix,"niv");
+     strcpy(first_line,"for neutrino velocity isocurvature (NIV) mode (normalized to initial entropy=1)");
+   }
++  if ((ppt->has_rie == _TRUE_) && (index_ic == ppt->index_ic_rie)) {
++    strcpy(ic_suffix,"rie");
++    strcpy(first_line,"for RIMS external energy-isocurvature (RIE) mode (normalized to S_dgamma=1 at leading order)");
++  }
++
++  if ((ppt->has_rmi == _TRUE_) && (index_ic == ppt->index_ic_rmi)) {
++    strcpy(ic_suffix,"rmi");
++    strcpy(first_line,"for RIMS mass-number compensated (RMI) mode (normalized to initial delta_phi=1)");
++  }
+   return _SUCCESS_;
+ }
+ 
+@@ -794,7 +803,7 @@
+ 
+   if (pba->has_dcdm == _TRUE_) {
+ 
+-    class_test((ppt->has_cdi == _TRUE_) || (ppt->has_bi == _TRUE_) || (ppt->has_nid == _TRUE_) || (ppt->has_niv == _TRUE_),
++    class_test((ppt->has_cdi == _TRUE_) || (ppt->has_bi == _TRUE_) || (ppt->has_nid == _TRUE_) || (ppt->has_niv == _TRUE_) || (ppt->has_rie == _TRUE_) || (ppt->has_rmi == _TRUE_),
+                ppt->error_message,
+                "Non-adiabatic initial conditions not coded in presence of decaying dark matter");
+ 
