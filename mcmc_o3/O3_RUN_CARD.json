@@ -1,0 +1,39 @@
+{
+  "version": "RIMS Phase II O3",
+  "date": "2026-08-18",
+  "status": "GITHUB_ACTIONS_MATCHED_MCMC_BRANCH_PREPARED",
+  "execution_backend": "GitHub Actions ubuntu-latest; public repository runner",
+  "primary_data_vector": [
+    "Planck 2018 low-l TT",
+    "Planck 2018 low-l EE",
+    "Planck 2018 high-l Plik TTTEEE lite native",
+    "DESI DR2 BAO",
+    "Pantheon+ without SH0ES"
+  ],
+  "primary_matched_models": [
+    "LambdaCDM",
+    "decoupled minimal-exponential scalar",
+    "minimal-exponential RIMS in geometry-adapted shell coordinates"
+  ],
+  "geometry_adapted_coordinates": {
+    "sampled": "rims_alpha_U, rims_shell_u_i",
+    "mapping": "rims_phi_transition = 4.44 - rims_shell_u_i/(2*rims_alpha_U)",
+    "s_i": "logistic(rims_shell_u_i)",
+    "primary_alpha_range": [0.0001, 0.12],
+    "primary_u_range": [-2.4423470353692043, 1.0986122886681098],
+    "primary_reference_u_from_archived_best": -0.769146353794116
+  },
+  "acceptance": {
+    "GetDist_Rminus1": "<0.01",
+    "minimum_headline_ESS": ">=1000",
+    "all_matched_models_must_pass": true
+  },
+  "source_reconstruction": "CLASS upstream e85808324f51fc694d12e3ed7439552a3c3f9540 + exact V7/V18.23 patch + V18.23-to-V18.29 delta patch; final source hashes checked before build",
+  "evidence": "LOCKED_TO_SEPARATE_NESTED_SAMPLING_AFTER_CONVERGED_MCMC_AND_PRIOR_SENSITIVITY",
+  "claim_boundary": [
+    "No Bayes factor from this workflow.",
+    "No interaction detection from best fit alone.",
+    "No model preference statement unless all three matched models pass R-1 and ESS gates.",
+    "No Planck lensing or nonlinear weak-lensing/full-shape claim in this production line."
+  ]
+}
