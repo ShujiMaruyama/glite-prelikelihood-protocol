@@ -1,0 +1,437 @@
+name: RIMS Phase II O3 c7 persistent-proposal resume-safe bridge
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: rims-phaseii-o3-c7-bridge-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  run-gate:
+    runs-on: ubuntu-latest
+    outputs:
+      execute: ${{ steps.gate.outputs.execute }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - id: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "execute=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          head_sha="${{ github.event.pull_request.head.sha }}"
+          git fetch --no-tags --depth=1 origin "$head_sha" || true
+          msg="$(git show -s --format=%B "$head_sha")"
+          printf 'PR head sha: %s\nHead commit message: %s\n' "$head_sha" "$msg"
+          if grep -Fq '[RIMS-C7-RUN]' <<<"$msg"; then
+            echo "execute=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "execute=false" >> "$GITHUB_OUTPUT"
+            echo "No [RIMS-C7-RUN] marker: expensive c7 jobs are intentionally skipped."
+          fi
+
+  config-audit:
+    needs: run-gate
+    if: needs.run-gate.outputs.execute == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit frozen target and c7 parent contract
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check pyyaml
+          python -m py_compile rims_shell_classy.py mcmc_o3/analyze_o3_chains.py
+          python - <<'PY'
+          import json, pathlib, yaml
+          for f in ['mcmc_o3/scalar_exp.yaml','mcmc_o3/rims_exp_shell.yaml']:
+              yaml.safe_load(pathlib.Path(f).read_text())
+              print('YAML PASS', f)
+          card=json.loads(pathlib.Path('mcmc_o3/O3_RUN_CARD.json').read_text())
+          assert card['evidence'].startswith('LOCKED')
+          print('Run-card PASS')
+          print('Target distribution: FROZEN')
+          print('Parent run: 33720586706, suffix=c6 for scalar and RIMS')
+          print('c7 intervention: proposal_scale only; c6 learned covariance retained.')
+          print('Scalar proposal_scale: 2.4 -> 3.6 (persistent equivalent of c5 std x1.5 intent)')
+          print('RIMS proposal_scale: 2.4 -> 4.8 (persistent equivalent of c5 std x2.0 intent)')
+          print('Production gate: GetDist R-1 < 0.01 AND minimum headline ESS >= 1000 for all matched models')
+          PY
+          test "$(git hash-object mcmc_o3/scalar_exp.yaml)" = "607819370369a76e26ff1a6a657c9a6ae6005fe2"
+          test "$(git hash-object mcmc_o3/rims_exp_shell.yaml)" = "84e7dc34a101a63b5243a78921aa679cfc444595"
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > /tmp/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > /tmp/V18_23_TO_V18_29.patch
+          test "$(sha256sum /tmp/V18_23_LOCAL_RIMS_PATCH.diff | awk '{print $1}')" = "6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74"
+          test "$(sha256sum /tmp/V18_23_TO_V18_29.patch | awk '{print $1}')" = "c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc"
+
+  mcmc:
+    needs: [run-gate, config-audit]
+    if: needs.run-gate.outputs.execute == 'true'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - model: scalar
+            yaml: scalar_exp
+            chain_root: scalar
+            proposal_scale_c7: "3.6"
+          - model: rims
+            yaml: rims_exp_shell
+            chain_root: rims_exp_shell
+            proposal_scale_c7: "4.8"
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      OMP_NUM_THREADS: 1
+      OPENBLAS_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
+      PYTHONUNBUFFERED: 1
+      MODEL: ${{ matrix.model }}
+      YAML: ${{ matrix.yaml }}
+      CHAIN_ROOT: ${{ matrix.chain_root }}
+      PROPOSAL_SCALE_C7: ${{ matrix.proposal_scale_c7 }}
+      PRIOR_RUN_ID: "33720586706"
+      PRIOR_SUFFIX: "c6"
+      CONTINUATION_INDEX: "7"
+      SEGMENT_MINUTES: "90"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct pinned RIMS V18.29 CLASS source
+        run: |
+          set -euo pipefail
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > rims_o3_patch/V18_23_TO_V18_29.patch
+          test "$(sha256sum rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff | awk '{print $1}')" = "6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74"
+          test "$(sha256sum rims_o3_patch/V18_23_TO_V18_29.patch | awk '{print $1}')" = "c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc"
+          git clone https://github.com/lesgourg/class_public.git class_public
+          cd class_public
+          git checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          git apply ../rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          git apply ../rims_o3_patch/V18_23_TO_V18_29.patch
+          git diff --check
+          test "$(sha256sum include/background.h | awk '{print $1}')" = "e8e81760366064a2155e9f7678fe83cd470d3c9ce0508d2ea0712ef18ca15e11"
+          test "$(sha256sum include/perturbations.h | awk '{print $1}')" = "bd6dbd4c1b90114b51c0f421fb9dae051df3c44666d0ba77f40f8af60818c2ea"
+          test "$(sha256sum source/background.c | awk '{print $1}')" = "28ed80d0b006990b983f3971f58d302858cfdcc7ee72156f1fe0668eee3af661"
+          test "$(sha256sum source/input.c | awk '{print $1}')" = "15e7360a997d957ac772e3cc48be42311371c73b1fc92d6ad3df5f1eae642c63"
+          test "$(sha256sum source/perturbations.c | awk '{print $1}')" = "928857ad4f19497d1ff07dae2df89c12659d7df2ea9aec0b70a20afb5eb842af"
+          test "$(sha256sum source/primordial.c | awk '{print $1}')" = "f24482c65a3495d637ebd87e401e7a81750989fa0be79180fe301ceb1077a34c"
+          git rev-parse HEAD > ../CLASS_UPSTREAM_COMMIT.txt
+          git diff > ../RIMS_V18_29_RECONSTRUCTED.diff
+
+      - name: Install CLASS and inference stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openmpi-bin libopenmpi-dev
+          python -m pip install --upgrade pip
+          python -m pip install 'cython<4' numpy scipy pandas pyyaml getdist mpi4py 'cobaya==3.6.2'
+          (cd class_public && python setup.py build)
+          python -m pip install -e ./class_public
+
+      - name: Cache matched likelihood packages
+        uses: actions/cache@v4
+        with:
+          path: packages
+          key: cobaya-3.6.2-planck2018-desi-dr2-pantheonplus-o3-v2
+
+      - name: Install or verify matched likelihood data
+        run: |
+          cobaya-install \
+            planck_2018_lowl.TT \
+            planck_2018_lowl.EE \
+            planck_2018_highl_plik.TTTEEE_lite_native \
+            bao.desi_dr2 \
+            sn.pantheonplus \
+            -p packages
+
+      - name: Theory plus likelihood preflight on frozen input
+        run: |
+          cobaya-run "mcmc_o3/${YAML}.yaml" --test
+          rm -rf chains
+
+      - name: Recover and audit c6 parent
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf _prior chains
+          mkdir -p _prior chains
+          gh run download "$PRIOR_RUN_ID" -n "rims-phaseii-o3-${MODEL}-${PRIOR_SUFFIX}" -D _prior
+          test -s _prior/SHA256SUMS.txt
+          (cd _prior && sha256sum -c SHA256SUMS.txt)
+          test -d _prior/chains
+          cp -a _prior/chains/. chains/
+          rm -f "chains/${CHAIN_ROOT}.input.yaml.locked"
+          test -s "chains/${CHAIN_ROOT}.checkpoint"
+          test -s "chains/${CHAIN_ROOT}.covmat"
+          test -s "chains/${CHAIN_ROOT}.input.yaml"
+          test -s "chains/${CHAIN_ROOT}.updated.yaml"
+          n=$(find chains -maxdepth 1 -name "${CHAIN_ROOT}.[1-4].txt" | wc -l)
+          test "$n" -eq 4
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          import numpy as np, yaml
+          root=os.environ['CHAIN_ROOT']
+          lineage=json.loads(Path('_prior/RUN_LINEAGE.json').read_text())
+          assert lineage['continuation_index'] == 6
+          assert lineage['continuation_of_run'] == 33600136614
+          assert lineage['target_distribution_changed'] is False
+          state={'model':os.environ['MODEL'],'parent_run':int(os.environ['PRIOR_RUN_ID']),'chains':{}}
+          for i in range(1,5):
+              p=Path('chains')/f'{root}.{i}.txt'
+              a=np.loadtxt(p)
+              state['chains'][str(i)]={
+                  'rows':int(a.shape[0]),
+                  'weight_sum':float(a[:,0].sum()),
+                  'sha256':hashlib.sha256(p.read_bytes()).hexdigest()
+              }
+          old=yaml.safe_load((Path('chains')/f'{root}.updated.yaml').read_text())
+          state['parent_proposal_scale']=float(old['sampler']['mcmc']['proposal_scale'])
+          assert abs(state['parent_proposal_scale']-2.4)<1e-12
+          Path(f'parent_c6_chain_state_{os.environ["MODEL"]}.json').write_text(json.dumps(state,indent=2))
+          print(json.dumps(state,indent=2))
+          PY
+          sha256sum _prior/SHA256SUMS.txt > "prior_${MODEL}_artifact_manifest.sha256"
+          sha256sum "chains/${CHAIN_ROOT}.checkpoint" "chains/${CHAIN_ROOT}.covmat" > "prior_${MODEL}_checkpoint_covmat.sha256"
+
+      - name: Apply persistent c7 proposal-scale tuning without target change
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import copy, hashlib, json, os
+          from pathlib import Path
+          import yaml
+          model=os.environ['MODEL']
+          root=os.environ['CHAIN_ROOT']
+          yname=os.environ['YAML']
+          new_scale=float(os.environ['PROPOSAL_SCALE_C7'])
+
+          def target_view(d):
+              x=copy.deepcopy(d)
+              m=x.setdefault('sampler',{}).setdefault('mcmc',{})
+              m.pop('proposal_scale',None)
+              return x
+
+          source=Path('mcmc_o3')/f'{yname}.yaml'
+          runtime=Path('mcmc_o3')/f'{yname}_c7_runtime.yaml'
+          src=yaml.safe_load(source.read_text())
+          assert abs(float(src['sampler']['mcmc']['proposal_scale'])-2.4)<1e-12
+          tuned=copy.deepcopy(src)
+          tuned['sampler']['mcmc']['proposal_scale']=new_scale
+          assert target_view(src)==target_view(tuned)
+          runtime.write_text(yaml.safe_dump(tuned,sort_keys=False))
+
+          audit={
+              'model':model,
+              'target_distribution_changed':False,
+              'proposal_scale_parent':2.4,
+              'proposal_scale_c7':new_scale,
+              'learn_proposal_retained':bool(tuned['sampler']['mcmc']['learn_proposal']),
+              'runtime_input':str(runtime),
+              'files':{}
+          }
+
+          for suffix in ['input.yaml','updated.yaml']:
+              p=Path('chains')/f'{root}.{suffix}'
+              before=p.read_bytes()
+              d=yaml.safe_load(before)
+              old=float(d['sampler']['mcmc']['proposal_scale'])
+              if abs(old-2.4)>1e-12:
+                  raise SystemExit(f'unexpected parent proposal_scale in {p}: {old}')
+              before_target=target_view(d)
+              d['sampler']['mcmc']['proposal_scale']=new_scale
+              assert before_target==target_view(d)
+              p.write_text(yaml.safe_dump(d,sort_keys=False))
+              audit['files'][str(p)]={
+                  'proposal_scale_before':old,
+                  'proposal_scale_after':new_scale,
+                  'sha256_before':hashlib.sha256(before).hexdigest(),
+                  'sha256_after':hashlib.sha256(p.read_bytes()).hexdigest()
+              }
+
+          Path(f'c7_proposal_scale_audit_{model}.json').write_text(json.dumps(audit,indent=2))
+          print(json.dumps(audit,indent=2))
+          PY
+
+      - name: Resume four-chain c7 for bounded 90-minute segment
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          set +e
+          timeout --signal=INT --kill-after=60s "${SEGMENT_MINUTES}m" \
+            mpirun --oversubscribe -np 4 \
+            cobaya-run "mcmc_o3/${YAML}_c7_runtime.yaml" --resume \
+            2>&1 | tee "o3_${MODEL}_c${CONTINUATION_INDEX}.log"
+          rc=${PIPESTATUS[0]}
+          set -e
+          echo "$rc" > "o3_${MODEL}_c${CONTINUATION_INDEX}_exit_code.txt"
+          if [ -s "chains/${CHAIN_ROOT}.checkpoint" ]; then
+            cp "chains/${CHAIN_ROOT}.checkpoint" "checkpoint_${MODEL}_after_segment.txt"
+          fi
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] && [ "$rc" -ne 130 ]; then
+            echo "unexpected_sampler_exit=$rc" > "SAMPLER_FATAL_${MODEL}.flag"
+          fi
+          exit 0
+
+      - name: Analyze convergence checkpoint and c7-only transport
+        if: ${{ always() }}
+        run: |
+          set +e
+          n=$(find chains -maxdepth 1 -name "${CHAIN_ROOT}.[1-4].txt" 2>/dev/null | wc -l)
+          if [ "$n" -ge 2 ]; then
+            python mcmc_o3/analyze_o3_chains.py \
+              --model "$MODEL" \
+              --root "chains/${CHAIN_ROOT}" \
+              --out "analysis_${MODEL}" || true
+          fi
+          python - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          import numpy as np
+          model=os.environ['MODEL']
+          root=os.environ['CHAIN_ROOT']
+          parent=json.loads(Path(f'parent_c6_chain_state_{model}.json').read_text())
+          out={
+              'model':model,
+              'parent_run':int(os.environ['PRIOR_RUN_ID']),
+              'continuation_index':7,
+              'proposal_scale_c7':float(os.environ['PROPOSAL_SCALE_C7']),
+              'target_distribution_changed':False,
+              'prefix_exact_all':True,
+              'chains':{}
+          }
+          total_rows=0
+          total_weight=0.0
+          for i in range(1,5):
+              p=Path('chains')/f'{root}.{i}.txt'
+              q=Path('_prior/chains')/f'{root}.{i}.txt'
+              new=np.loadtxt(p)
+              old=np.loadtxt(q)
+              exact=(new.shape[0]>=old.shape[0] and np.array_equal(new[:old.shape[0]],old))
+              add=new[old.shape[0]:]
+              rows=int(add.shape[0])
+              weights=float(add[:,0].sum()) if rows else 0.0
+              acc=(rows/weights) if weights>0 else None
+              total_rows+=rows
+              total_weight+=weights
+              out['prefix_exact_all'] = out['prefix_exact_all'] and exact
+              out['chains'][str(i)]={
+                  'parent_rows':int(old.shape[0]),
+                  'new_rows':int(new.shape[0]),
+                  'added_rows':rows,
+                  'added_weight_sum':weights,
+                  'c7_only_acceptance_estimate':acc,
+                  'prefix_exact':bool(exact)
+              }
+          out['added_rows_total']=total_rows
+          out['added_weight_sum_total']=total_weight
+          out['c7_only_acceptance_estimate']=total_rows/total_weight if total_weight>0 else None
+          log=Path(f'o3_{model}_c7.log')
+          text=log.read_text(errors='replace') if log.exists() else ''
+          rr=[float(x) for x in re.findall(r'Convergence of means: R-1 =\s*([0-9.eE+-]+)',text)]
+          acc=[float(x) for x in re.findall(r'Acceptance rate:\s*([0-9.]+)',text)]
+          out['sampler_Rminus1_last_logged']=rr[-1] if rr else None
+          out['logged_acceptance_last']=acc[-1] if acc else None
+          Path(f'c7_segment_audit_{model}.json').write_text(json.dumps(out,indent=2))
+          print(json.dumps(out,indent=2))
+          PY
+
+      - name: Package c7 checkpoint before final status
+        if: ${{ always() }}
+        run: |
+          set +e
+          rm -rf artifact
+          mkdir -p artifact
+          cp CLASS_UPSTREAM_COMMIT.txt RIMS_V18_29_RECONSTRUCTED.diff artifact/
+          cp rims_o3_patch/SOURCE_HASH_CONTRACT.json artifact/
+          cp "mcmc_o3/${YAML}.yaml" "mcmc_o3/${YAML}_c7_runtime.yaml" mcmc_o3/O3_RUN_CARD.json artifact/
+          cp rims_shell_classy.py mcmc_o3/analyze_o3_chains.py artifact/
+          cp "o3_${MODEL}_c${CONTINUATION_INDEX}.log" "o3_${MODEL}_c${CONTINUATION_INDEX}_exit_code.txt" artifact/
+          cp "prior_${MODEL}_checkpoint_covmat.sha256" "prior_${MODEL}_artifact_manifest.sha256" artifact/
+          cp "parent_c6_chain_state_${MODEL}.json" "c7_proposal_scale_audit_${MODEL}.json" "c7_segment_audit_${MODEL}.json" artifact/
+          cp "checkpoint_${MODEL}_after_segment.txt" artifact/ 2>/dev/null
+          cp "SAMPLER_FATAL_${MODEL}.flag" artifact/ 2>/dev/null
+          cp -r chains artifact/
+          cp -r "analysis_${MODEL}" artifact/ 2>/dev/null
+          python - <<'PY'
+          import json, os, platform, subprocess, sys
+          from pathlib import Path
+          model=os.environ['MODEL']
+          rcfile=Path(f'o3_{model}_c{os.environ["CONTINUATION_INDEX"]}_exit_code.txt')
+          rc=int(rcfile.read_text().strip()) if rcfile.exists() else None
+          meta={
+            'schema':'rims-phaseii-o3-c7-persistent-proposal-v1',
+            'python':sys.version,
+            'platform':platform.platform(),
+            'model':model,
+            'continuation_index':7,
+            'segment_minutes':90,
+            'continuation_of_run':33720586706,
+            'continuation_source_suffix':'c6',
+            'sampler_exit_code':rc,
+            'sampler_exit_is_expected_checkpoint':rc in (0,124,130),
+            'proposal_scale_parent':2.4,
+            'proposal_scale_c7':float(os.environ['PROPOSAL_SCALE_C7']),
+            'proposal_covariance_source':'c6 learned covariance, retained unchanged before resume',
+            'learn_proposal_retained':True,
+            'target_distribution_changed':False,
+            'production_gate':'GetDist R-1 < 0.01 AND minimum headline ESS >= 1000 for all matched models',
+            'claim_boundary':'Checkpoint only unless the frozen production gate passes. No Bayes factor/evidence or model preference from incomplete chains.',
+            'source_contract':{
+              'class_upstream_commit':'e85808324f51fc694d12e3ed7439552a3c3f9540',
+              'v18_23_patch_sha256':'6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74',
+              'v18_29_delta_sha256':'c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc'
+            }
+          }
+          try:
+              meta['pip_freeze']=subprocess.check_output([sys.executable,'-m','pip','freeze'],text=True).splitlines()
+          except Exception as exc:
+              meta['pip_freeze_error']=repr(exc)
+          Path('artifact/RUN_LINEAGE.json').write_text(json.dumps(meta,indent=2))
+          PY
+          (cd artifact && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+
+      - name: Upload c7 resume-safe checkpoint
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rims-phaseii-o3-${{ matrix.model }}-c7
+          path: artifact
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Final c7 checkpoint status
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          if [ -f "SAMPLER_FATAL_${MODEL}.flag" ]; then
+            cat "SAMPLER_FATAL_${MODEL}.flag"
+            exit 1
+          fi
+          test -s "chains/${CHAIN_ROOT}.checkpoint"
+          test -s "chains/${CHAIN_ROOT}.covmat"
+          test -s "c7_segment_audit_${MODEL}.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          model=os.environ['MODEL']
+          d=json.loads(Path(f'c7_segment_audit_{model}.json').read_text())
+          assert d['prefix_exact_all'] is True
+          assert d['target_distribution_changed'] is False
+          print('c7 prefix preservation PASS')
+          print('c7-only acceptance estimate:',d['c7_only_acceptance_estimate'])
+          s=Path(f'analysis_{model}/mcmc_summary.json')
+          if s.exists():
+              x=json.loads(s.read_text())
+              print('GetDist R-1:',x.get('getdist_Rminus1'))
+              print('minimum ESS:',x.get('minimum_effective_samples'))
+          PY
+          echo "c7 resume-safe checkpoint preserved for ${MODEL}."

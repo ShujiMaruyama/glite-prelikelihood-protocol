@@ -1,0 +1,46 @@
+{
+  "schema": "rims-phaseii-o3-c9p1-to-c9p2-predeclared-continuation-v1",
+  "date": "2026-09-07",
+  "frozen_before_c9p1_results": true,
+  "c9p1_run_id": 34096706561,
+  "observed_at_freeze": {
+    "scalar_sentinel_passed": true,
+    "rims_sentinel_passed": true,
+    "scalar_production_in_progress": true,
+    "rims_production_in_progress": true,
+    "c9p1_posterior_diagnostics_available": false
+  },
+  "production_gate": {
+    "GetDist_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000.0
+  },
+  "if_gate_passes": "freeze c9 production result; do not tune geometry further",
+  "if_gate_not_yet_passes": {
+    "allowed_action": "one bounded c9p2 resume of the same four production chains",
+    "segment_minutes": 90,
+    "requirements": [
+      "no sampler fatal flag",
+      "all four c9p1 production chains exist and are non-empty",
+      "c9p1 artifact SHA256 manifest verifies exactly",
+      "c9 execution contract verifies target_distribution_changed=false",
+      "same c9 target YAML, coordinate map, proposal covariance, proposal_scale=2.4, learn_proposal=false",
+      "resume preserves every c9p1 chain row as an exact numeric prefix"
+    ],
+    "forbidden_between_c9p1_and_c9p2": [
+      "posterior-derived preconditioner",
+      "new coordinate remapping",
+      "likelihood change",
+      "physical prior change",
+      "proposal-scale retuning",
+      "discarding or replacing a production chain"
+    ]
+  },
+  "stop_conditions": [
+    "sampler fatal error",
+    "missing or empty production chain",
+    "artifact or target hash mismatch",
+    "broken chain-prefix continuity",
+    "geometry-contract failure"
+  ],
+  "claim_boundary": "Neither c9p1 nor c9p2 is a production posterior unless the unchanged joint gate R-1 < 0.01 and minimum headline ESS >= 1000 is satisfied. No evidence, Bayes factor, detection, model preference, or competitiveness claim before then."
+}
