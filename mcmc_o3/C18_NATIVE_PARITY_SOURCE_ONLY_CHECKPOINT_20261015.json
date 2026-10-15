@@ -1,0 +1,63 @@
+{
+  "schema": "rims-phaseii-o3-c18-manual-native-parity-source-checkpoint-v1",
+  "date": "2026-10-15",
+  "origin_branch": "rims-c17-native-class-parity-static-20261015",
+  "origin_head": "f673c2dcd60159c244eae1d51a7611eca66e011b",
+  "scope": "offline_native_class_parity_preparation_not_executed",
+  "deliverable": {
+    "file": "RIMS_c18_full_native_parity_action_ready_20261015.zip",
+    "sha256": "7efd06d6587ac06ba6203224345d15b91a6a0f74f43a00096af64bbfcea341bb",
+    "file_count": 74,
+    "all_internal_checksum_verified": true,
+    "source_delivery": "ChatGPT conversation ZIP ONLY; executable Python source and workflow are not yet pushed to this GitHub branch"
+  },
+  "source_lock": {
+    "eight_start_manifest_sha256": "3c49def1a71e63188fc81e3bd5853534dae16b64c4d366fea23dd9cee704e658",
+    "independent_reference_starts": 4,
+    "conditional_c13b_warm_starts": 4,
+    "unique_start_vectors": 8,
+    "input_yaml_per_start_source_integrity": "PASS",
+    "runtime_class_parity": "UNTESTED",
+    "target_c13b_reference_lock": "OFFLINE_PASS"
+  },
+  "offline_tests": {
+    "c15_paired": 6,
+    "c16_counter": 13,
+    "c17_parity": 15,
+    "c18_source_binding": 11,
+    "total_passed": 45,
+    "real_CLASS_tests": 0
+  },
+  "workflow_contract": {
+    "filename": ".github/workflows/rims-phaseii-o3-c18-native-parity.yml",
+    "available_in": "attached ZIP only; not registered on GitHub",
+    "trigger": "workflow_dispatch only",
+    "safe_default": "static-only",
+    "optional_non_MCMC_modes": [
+      "single-pair",
+      "eight-start"
+    ],
+    "per_onepoint_timeout_seconds": 300,
+    "automatic_MCMC": false,
+    "automatic_long_run": false,
+    "automatic_follow_on": false,
+    "source_branch": "rims-c18-native-parity-manual-20261015"
+  },
+  "execution_claims": {
+    "GitHub_Actions_runs": 0,
+    "real_RIMS_CLASS_likelihood_evaluations": 0,
+    "production_MCMC": false,
+    "inference_samples_promoted": false,
+    "Bayes_factor": false,
+    "model_preference": false,
+    "LambdaCDM_competitiveness": false
+  },
+  "unresolved_hard_gates": [
+    "Push ZIP-contained source files into c18 GitHub branch; register dispatch workflow on default branch",
+    "Run pinned patched RIMS V18.29 native CLASS one-point parity for a single fixed start with explicit user dispatch",
+    "Validate five log likelihoods, normalization phi_ref, priors and native background/full compute counter",
+    "Run all eight starts without omission after explicit approval",
+    "Compare 3 vs 27 drag only on equal actual native CLASS compute budget and stationarity",
+    "Production GetDist R-1 <0.01 and minimum headline ESS >=1000"
+  ]
+}
