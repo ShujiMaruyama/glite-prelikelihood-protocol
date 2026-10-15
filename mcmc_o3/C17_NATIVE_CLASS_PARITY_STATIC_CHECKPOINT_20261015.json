@@ -11,7 +11,7 @@
   },
   "full_source_zip": {
     "filename": "RIMS_c17_Native_CLASS_Parity_Static_Preflight_20261015.zip",
-    "sha256": "902f00cf70e9d75f4da9b1d6479b8d0cb31dea05ee269172766f524cdf9c4c2c",
+    "sha256": "52ef35f70bcfa53597bc32a310cd8fa2f30c5dcc9e755da1aca9d4c48b893251",
     "internal_sha256_manifest": "SHA256SUMS_C17.txt",
     "packaged_files_checked": 14,
     "source_delivery": "conversation_artifact_not_yet_committed_into_GitHub_tree"
@@ -19,7 +19,7 @@
   "c17_additions": {
     "one_point_probe": "c17_one_point_probe.py",
     "pair_audit": "c17_pair_audit.py",
-    "eight_start_batch_audit": "c17_batch_audit.py",
+    "eight_start_batch_audit": "c17_batch_audit.py independently re-runs each original pair audit and matches recorded SHA256/native counters",
     "new_tests": "test_c17_parity.py",
     "numerical_comparison_abs_tol": 1e-7,
     "numerical_comparison_rel_tol": 1e-9,
@@ -31,8 +31,8 @@
   "executed_locally": {
     "c15_regression_tests": 6,
     "c16_synthetic_tests": 13,
-    "c17_mock_and_static_tests": 14,
-    "total_pass": 33,
+    "c17_mock_and_static_tests": 15,
+    "total_pass": 34,
     "real_RIMS_V18_29_CLASS_evaluations": 0,
     "real_likelihood_evaluations": 0,
     "GitHub_Actions_runs": 0,
