@@ -1,0 +1,229 @@
++      pba->background_table[(pba->bt_size-1)*pba->bg_size+pba->index_bg_rims_closure];
++    double rims_stability_min =
++      pba->background_table[pba->index_bg_rims_stability_margin];
++    int index_rims;
++
++    for (index_rims=1; index_rims<pba->bt_size; index_rims++) {
++      rims_stability_min =
++        MIN(rims_stability_min,
++            pba->background_table[index_rims*pba->bg_size+pba->index_bg_rims_stability_margin]);
++    }
++
++    class_test(fabs(rims_closure_today) > 1.e-12,
++               pba->error_message,
++               "RIMS closure failed at a=1: residual=%e",
++               rims_closure_today);
++    class_test((pba->rims_in_shooting == _FALSE_) &&
++               (pba->rims_require_normalization == _TRUE_) &&
++               (fabs(rims_mass_ratio_today-1.) > pba->rims_normalization_tolerance),
++               pba->error_message,
++               "RIMS mass normalization failed: m(phi_today)/m(phi_ref)-1=%e exceeds %e",
++               rims_mass_ratio_today-1.,
++               pba->rims_normalization_tolerance);
++
++    if (pba->background_verbose > 0) {
++      printf(" -> RIMS m(phi_today)/m(phi_ref) = %.12e\n",rims_mass_ratio_today);
++      printf(" -> RIMS minimum m_eff^2/H^2 = %.12e\n",rims_stability_min);
++      printf(" -> RIMS closure residual at a=1 = %.12e\n",rims_closure_today);
++    }
++  }
++
+   /**  - store information in the background structure */
+   pba->Omega0_m = pba->background_table[(pba->bt_size-1)*pba->bg_size+pba->index_bg_Omega_m];
+   pba->Omega0_r = pba->background_table[(pba->bt_size-1)*pba->bg_size+pba->index_bg_Omega_r];
+@@ -2467,6 +2572,15 @@ int background_output_titles(
+   class_store_columntitle(titles,"V'_scf",pba->has_scf);
+   class_store_columntitle(titles,"V''_scf",pba->has_scf);
+ 
++  class_store_columntitle(titles,"rims_s",pba->has_rims);
++  class_store_columntitle(titles,"rims_alpha",pba->has_rims);
++  class_store_columntitle(titles,"rims_dalpha",pba->has_rims);
++  class_store_columntitle(titles,"rims_mratio",pba->has_rims);
++  class_store_columntitle(titles,"rims_q",pba->has_rims);
++  class_store_columntitle(titles,"rims_meff2",pba->has_rims);
++  class_store_columntitle(titles,"rims_stab",pba->has_rims);
++  class_store_columntitle(titles,"rims_closure",pba->has_rims);
++
+   class_store_columntitle(titles,"(.)rho_tot",_TRUE_);
+   class_store_columntitle(titles,"(.)p_tot",_TRUE_);
+   class_store_columntitle(titles,"(.)p_tot_prime",_TRUE_);
+@@ -2543,6 +2657,15 @@ int background_output_data(
+     class_store_double(dataptr,pvecback[pba->index_bg_dV_scf],pba->has_scf,storeidx);
+     class_store_double(dataptr,pvecback[pba->index_bg_ddV_scf],pba->has_scf,storeidx);
+ 
++    class_store_double(dataptr,pvecback[pba->index_bg_rims_s],pba->has_rims,storeidx);
++    class_store_double(dataptr,pvecback[pba->index_bg_rims_alpha],pba->has_rims,storeidx);
++    class_store_double(dataptr,pvecback[pba->index_bg_rims_dalpha_dphi],pba->has_rims,storeidx);
++    class_store_double(dataptr,pvecback[pba->index_bg_rims_mass_ratio],pba->has_rims,storeidx);
++    class_store_double(dataptr,pvecback[pba->index_bg_rims_q],pba->has_rims,storeidx);
++    class_store_double(dataptr,pvecback[pba->index_bg_rims_meff2],pba->has_rims,storeidx);
++    class_store_double(dataptr,pvecback[pba->index_bg_rims_stability_margin],pba->has_rims,storeidx);
++    class_store_double(dataptr,pvecback[pba->index_bg_rims_closure],pba->has_rims,storeidx);
++
+     class_store_double(dataptr,pvecback[pba->index_bg_rho_tot],_TRUE_,storeidx);
+     class_store_double(dataptr,pvecback[pba->index_bg_p_tot],_TRUE_,storeidx);
+     class_store_double(dataptr,pvecback[pba->index_bg_p_tot_prime],_TRUE_,storeidx);
+@@ -2665,6 +2788,11 @@ int background_derivs(
+         written as \f$ d\phi/dlna = phi' / (aH) \f$ and \f$ d\phi'/dlna = -2*phi' - (a/H) dV \f$ */
+     dy[pba->index_bi_phi_scf] = y[pba->index_bi_phi_prime_scf]/a/H;
+     dy[pba->index_bi_phi_prime_scf] = - 2*y[pba->index_bi_phi_prime_scf] - a*dV_scf(pba,y[pba->index_bi_phi_scf])/H ;
++    if (pba->has_rims == _TRUE_) {
++      dy[pba->index_bi_phi_prime_scf] -=
++        a/H*3.*rims_alpha(pba,y[pba->index_bi_phi_scf])
++        *pvecback[pba->index_bg_rho_idm];
++    }
+   }
+ 
+   return _SUCCESS_;
+@@ -3005,3 +3133,49 @@ double ddV_scf(
+                double phi) {
+   return ddV_e_scf(pba,phi)*V_p_scf(pba,phi) + 2*dV_e_scf(pba,phi)*dV_p_scf(pba,phi) + V_e_scf(pba,phi)*ddV_p_scf(pba,phi);
+ }
++
++double rims_s(
++              struct background *pba,
++              double phi) {
++  double x = 2.*pba->rims_alpha_U*(phi-pba->rims_phi_transition);
++
++  if (x >= 0.) {
++    return 1./(1.+exp(-x));
++  }
++  else {
++    double exp_x = exp(x);
++    return exp_x/(1.+exp_x);
++  }
++}
++
++double rims_alpha(
++                  struct background *pba,
++                  double phi) {
++  return pba->rims_alpha_U*(1.-rims_s(pba,phi));
++}
++
++double rims_dalpha_dphi(
++                        struct background *pba,
++                        double phi) {
++  double s = rims_s(pba,phi);
++  return -2.*pow(pba->rims_alpha_U,2)*s*(1.-s);
++}
++
++double rims_mass_curvature(
++                           struct background *pba,
++                           double phi) {
++  double s = rims_s(pba,phi);
++  return pow(pba->rims_alpha_U,2)*(1.-s)*(1.-3.*s);
++}
++
++double rims_mass_ratio(
++                       struct background *pba,
++                       double phi) {
++  double s = rims_s(pba,phi);
++  double s_ref = rims_s(pba,pba->rims_phi_ref);
++
++  if (s_ref <= 0.) {
++    return NAN;
++  }
++  return sqrt(s/s_ref);
++}
+diff --git a/source/input.c b/source/input.c
+index 99ca121..d6f20bf 100644
+--- a/source/input.c
++++ b/source/input.c
+@@ -1358,6 +1358,13 @@ int input_try_unknown_parameters(double * unknown_parameter,
+              errmsg,
+              errmsg);
+ 
++  /*
++   * A shooting iterate is not a physical final solution.  Its scalar-field
++   * tuning parameter has not yet reached the requested present-day density,
++   * so the final-time RIMS mass-normalization gate must be deferred.
++   */
++  ba.rims_in_shooting = _TRUE_;
++
+   class_call(parser_read_int(&(pfzw->fc),"input_verbose",&param,&flag,errmsg),
+              errmsg,
+              errmsg);
+@@ -3372,6 +3379,59 @@ int input_read_parameters_species(struct file_content * pfc,
+     }
+   }
+ 
++  /** 8.c) RIMS field-dependent-mass completion */
++  class_read_flag("rims_enabled",pba->rims_enabled);
++
++  if (pba->rims_enabled == _TRUE_) {
++    class_read_double("rims_alpha_U",pba->rims_alpha_U);
++    class_read_double("rims_phi_transition",pba->rims_phi_transition);
++    class_read_double("rims_phi_ref",pba->rims_phi_ref);
++    class_read_double("rims_normalization_tolerance",pba->rims_normalization_tolerance);
++    class_read_double("rims_stability_tolerance",pba->rims_stability_tolerance);
++    class_read_flag("rims_enforce_stability",pba->rims_enforce_stability);
++    class_read_flag("rims_require_normalization",pba->rims_require_normalization);
++    class_read_flag("rims_subleading_adiabatic_ic",pba->rims_subleading_adiabatic_ic);
++
++    class_test((isfinite(pba->rims_alpha_U) == 0) ||
++               (isfinite(pba->rims_phi_transition) == 0) ||
++               (isfinite(pba->rims_phi_ref) == 0),
++               errmsg,
++               "RIMS charge, transition field, and reference field must be finite.");
++    class_test(pba->Omega0_idm <= 0.,
++               errmsg,
++               "RIMS requires Omega_idm > 0 because the number-density species is mapped to idm.");
++    class_test(pba->Omega0_scf == 0.,
++               errmsg,
++               "RIMS requires a canonical scalar field with Omega_scf != 0.");
++    class_test(ppt->gauge != synchronous,
++               errmsg,
++               "RIMS V6 requires gauge=synchronous.");
++    class_test(pba->Omega0_cdm <= ppr->Omega0_cdm_min_synchronous,
++               errmsg,
++               "RIMS V6 requires a nonzero uncoupled CDM gauge anchor.");
++    class_test(ppt->has_idm_soundspeed == _TRUE_,
++               errmsg,
++               "RIMS requires idm_soundspeed=no.");
++    class_test(ppt->has_Nbody_gauge_transfers == _TRUE_,
++               errmsg,
++               "RIMS V6 does not expose N-body-gauge transfer functions; use the native synchronous-gauge outputs.");
++    class_test((ppt->has_ad == _FALSE_) || (ppt->has_bi == _TRUE_) ||
++               (ppt->has_cdi == _TRUE_) || (ppt->has_nid == _TRUE_) ||
++               (ppt->has_niv == _TRUE_),
++               errmsg,
++               "RIMS V6 currently supports the adiabatic scalar initial condition only.");
++    class_test((pth->a_idm_dr != 0.) || (pth->cross_idm_b != 0.) ||
++               (pth->cross_idm_g != 0.) || (pth->u_idm_g != 0.),
++               errmsg,
++               "RIMS cannot share the idm slot with photon, baryon, or dark-radiation scattering.");
++    class_test(pba->rims_normalization_tolerance <= 0.,
++               errmsg,
++               "rims_normalization_tolerance must be strictly positive.");
++    class_test(pba->rims_stability_tolerance < 0.,
++               errmsg,
++               "rims_stability_tolerance must be non-negative.");
++  }
++
+   return _SUCCESS_;
+ 
+ }
+@@ -5929,6 +5989,18 @@ int input_default_params(struct background *pba,
+   /** 9.b.3) Tuning parameter */
+   pba->scf_tuning_index = 0;
+ 
++  /** 9.c) RIMS field-dependent-mass completion */
++  pba->rims_enabled = _FALSE_;
++  pba->rims_enforce_stability = _TRUE_;
++  pba->rims_require_normalization = _TRUE_;
++  pba->rims_subleading_adiabatic_ic = _TRUE_;
++  pba->rims_alpha_U = 0.;
++  pba->rims_phi_transition = 0.;
++  pba->rims_phi_ref = 0.;
++  pba->rims_normalization_tolerance = 1.e-8;
++  pba->rims_stability_tolerance = 1.e-10;
++  pba->rims_in_shooting = _FALSE_;
++
+   /**
+    * Deafult to input_read_parameters_heating
+    */
+diff --git a/source/perturbations.c b/source/perturbations.c
+index c78fe43..2114ca5 100644
+--- a/source/perturbations.c
++++ b/source/perturbations.c
+@@ -3331,7 +3331,10 @@ int perturbations_prepare_k_output(struct background * pba,
