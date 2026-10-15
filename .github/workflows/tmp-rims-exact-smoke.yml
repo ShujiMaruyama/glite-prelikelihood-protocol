@@ -1,0 +1,10 @@
+name: temporary RIMS exact diagnostic disabled
+
+on:
+  workflow_dispatch:
+
+jobs:
+  disabled:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "One-point diagnostic completed; production MCMC path active elsewhere."

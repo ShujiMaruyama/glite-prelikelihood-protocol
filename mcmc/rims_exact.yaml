@@ -1,0 +1,55 @@
+packages_path: packages
+output: chains/rims_exact
+
+likelihood:
+  planck_2018_lowl.TT: null
+  planck_2018_lowl.EE: null
+  planck_2018_highl_plik.TTTEEE_lite_native: null
+  bao.desi_dr2: null
+  sn.pantheonplus: null
+
+theory:
+  rims_classy.RIMSClassy:
+    python_path: .
+    path: ./class_public
+    ignore_obsolete: false
+    stop_at_error: true
+    rims_norm_tolerance: 3.0e-9
+    rims_norm_maxiter: 16
+    extra_args:
+      gauge: synchronous
+      ic: ad
+      idm_soundspeed: "no"
+      N_ur: 3.044
+      N_ncdm: 0
+      YHe: BBN
+      scf_parameters: "5., 0., 0., 0., 4.44, 0."
+      attractor_ic_scf: "no"
+      scf_tuning_index: 0
+      rims_enabled: "yes"
+      rims_enforce_stability: "yes"
+      rims_stability_tolerance: 1.e-10
+      rims_require_normalization: "yes"
+      rims_normalization_tolerance: 1.e-8
+      rims_subleading_adiabatic_ic: "yes"
+      recombination: HYREC
+      reio_parametrization: reio_camb
+      k_pivot: 0.05
+      non_linear: none
+
+params:
+  H0: {value: 68.02239956}
+  omega_b: {value: 0.0224611661}
+  omega_cdm: {value: 0.01185203994}
+  omega_idm: {value: 0.10666835946}
+  A_s: {value: 2.100549e-9}
+  n_s: {value: 0.9660499}
+  tau_reio: {value: 0.0544}
+  Omega_scf: {value: 0.1017248094}
+  rims_alpha_U: {value: 0.0613181089}
+  rims_phi_transition: {value: 20.091078}
+
+sampler:
+  evaluate: null
+
+debug: true

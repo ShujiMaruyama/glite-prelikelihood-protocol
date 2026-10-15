@@ -1,0 +1,149 @@
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from getdist.mcsamples import loadMCSamples
+
+
+def weighted_quantile(values, weights, q):
+    values = np.asarray(values, dtype=float)
+    weights = np.asarray(weights, dtype=float)
+    order = np.argsort(values)
+    values = values[order]
+    weights = weights[order]
+    cdf = np.cumsum(weights)
+    cdf /= cdf[-1]
+    return float(np.interp(q, cdf, values))
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--model", required=True)
+    ap.add_argument("--root", required=True)
+    ap.add_argument("--out", required=True)
+    args = ap.parse_args()
+
+    root = Path(args.root)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+
+    samples = loadMCSamples(str(root), settings={"ignore_rows": 0.30}, no_cache=True)
+    names = [p.name for p in samples.getParamNames().names]
+    weights = np.asarray(samples.weights, dtype=float)
+
+    # Include all headline cosmological/RIMS coordinates and the common Planck
+    # calibration nuisance so that the declared ESS floor cannot silently miss
+    # a slowly mixing sampled direction.
+    sampled_interest = [
+        "H0", "omega_b", "omega_cdm", "omega_dm", "logA", "n_s", "tau_reio",
+        "Omega_scf", "rims_alpha_U", "rims_phi_transition", "A_planck",
+        "Omega_m", "sigma8", "S8",
+    ]
+    rows = []
+    ess_values = []
+    for name in sampled_interest:
+        if name not in names:
+            continue
+        j = names.index(name)
+        vals = samples.samples[:, j]
+        ess = float(samples.getEffectiveSamples(j))
+        ess_values.append(ess)
+        mean = float(np.average(vals, weights=weights))
+        rows.append({
+            "parameter": name,
+            "mean": mean,
+            "std": float(np.sqrt(np.average((vals - mean) ** 2, weights=weights))),
+            "q025": weighted_quantile(vals, weights, 0.025),
+            "q16": weighted_quantile(vals, weights, 0.16),
+            "q50": weighted_quantile(vals, weights, 0.50),
+            "q84": weighted_quantile(vals, weights, 0.84),
+            "q975": weighted_quantile(vals, weights, 0.975),
+            "ESS": ess,
+        })
+
+    pd.DataFrame(rows).to_csv(out / "posterior_summary.csv", index=False)
+
+    try:
+        gelman_rubin = float(samples.getGelmanRubin())
+    except Exception:
+        gelman_rubin = float("nan")
+
+    # GetDist stores Cobaya's second chain column (minus log posterior) in
+    # ``samples.loglikes``.  The maximum-posterior retained sample is therefore
+    # its minimum.  Cobaya also writes a total ``chi2`` column *and* both
+    # aggregate type columns (chi2__CMB/BAO/SN) and individual likelihood
+    # columns.  Summing every chi2__* would double count the data.  Prefer the
+    # explicit total chi2 column; retain only leaf likelihoods as components.
+    best_index = int(np.argmin(samples.loglikes))
+    best_params = {
+        name: float(samples.samples[best_index, names.index(name)])
+        for name in names
+        if name != "chi2" and not name.startswith("chi2__")
+    }
+
+    aggregate_chi2 = {"chi2__CMB", "chi2__BAO", "chi2__SN"}
+    leaf_chi2_cols = [
+        name for name in names
+        if name.startswith("chi2__") and name not in aggregate_chi2
+    ]
+    best_components = {
+        name: float(samples.samples[best_index, names.index(name)])
+        for name in leaf_chi2_cols
+    }
+    if "chi2" in names:
+        best_chi2 = float(samples.samples[best_index, names.index("chi2")])
+    elif best_components:
+        best_chi2 = float(sum(best_components.values()))
+    else:
+        best_chi2 = float("nan")
+
+    extra = {}
+    if "rims_alpha_U" in names:
+        vals = samples.samples[:, names.index("rims_alpha_U")]
+        extra["P_alpha_lt_0p005"] = float(np.sum(weights[vals < 0.005]) / np.sum(weights))
+        extra["P_alpha_lt_0p01"] = float(np.sum(weights[vals < 0.01]) / np.sum(weights))
+        extra["alpha_95_upper"] = weighted_quantile(vals, weights, 0.95)
+    if "Omega_scf" in names:
+        vals = samples.samples[:, names.index("Omega_scf")]
+        extra["Omega_scf_95_interval"] = [
+            weighted_quantile(vals, weights, 0.025),
+            weighted_quantile(vals, weights, 0.975),
+        ]
+
+    progress_path = Path(str(root) + ".progress")
+    progress_last = None
+    if progress_path.exists():
+        try:
+            prog = pd.read_csv(progress_path, sep=r"\s+", comment="#")
+            if len(prog):
+                progress_last = {
+                    k: (float(v) if np.issubdtype(type(v), np.number) else str(v))
+                    for k, v in prog.iloc[-1].to_dict().items()
+                }
+        except Exception as exc:
+            progress_last = {"parse_error": repr(exc)}
+
+    summary = {
+        "model": args.model,
+        "burnin_fraction_removed": 0.30,
+        "weighted_samples_after_burnin": float(np.sum(weights)),
+        "distinct_rows_after_burnin": int(len(weights)),
+        "getdist_Rminus1": gelman_rubin,
+        "minimum_parameter_ESS": float(min(ess_values)) if ess_values else None,
+        "best_sample_minuslogpost": float(samples.loglikes[best_index]),
+        "best_sample_chi2_sum": best_chi2,
+        "best_sample_chi2_components": best_components,
+        "best_sample_parameters": best_params,
+        "progress_last": progress_last,
+        **extra,
+    }
+    (out / "mcmc_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    print(json.dumps(summary, indent=2))
+
+
+if __name__ == "__main__":
+    main()
