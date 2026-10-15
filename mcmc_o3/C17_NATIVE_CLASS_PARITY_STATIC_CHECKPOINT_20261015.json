@@ -1,0 +1,63 @@
+{
+  "schema": "rims-c17-native-class-parity-static-checkpoint-v1",
+  "date": "2026-10-15",
+  "stage": "offline_python_implementation_only",
+  "source_lineage": {
+    "c16_repository_head": "cb909798d033980a9cda5f42407754b03adc421a",
+    "c16_zip_sha256": "d28233c2a3096a76a85b29f5878930d0ceef29e9d702c4bf8e924ad2790720a6",
+    "source_c13b_run_id": 38189596230,
+    "c15_yaml_files": 16,
+    "distinct_start_points": 8
+  },
+  "full_source_zip": {
+    "filename": "RIMS_c17_Native_CLASS_Parity_Static_Preflight_20261015.zip",
+    "sha256": "902f00cf70e9d75f4da9b1d6479b8d0cb31dea05ee269172766f524cdf9c4c2c",
+    "internal_sha256_manifest": "SHA256SUMS_C17.txt",
+    "packaged_files_checked": 14,
+    "source_delivery": "conversation_artifact_not_yet_committed_into_GitHub_tree"
+  },
+  "c17_additions": {
+    "one_point_probe": "c17_one_point_probe.py",
+    "pair_audit": "c17_pair_audit.py",
+    "eight_start_batch_audit": "c17_batch_audit.py",
+    "new_tests": "test_c17_parity.py",
+    "numerical_comparison_abs_tol": 1e-7,
+    "numerical_comparison_rel_tol": 1e-9,
+    "all_eight_starts_mandatory": true,
+    "output_per_likelihood_components": 5,
+    "output_RIMS_normalization_phi_ref": true,
+    "native_background_and_full_counter": true
+  },
+  "executed_locally": {
+    "c15_regression_tests": 6,
+    "c16_synthetic_tests": 13,
+    "c17_mock_and_static_tests": 14,
+    "total_pass": 33,
+    "real_RIMS_V18_29_CLASS_evaluations": 0,
+    "real_likelihood_evaluations": 0,
+    "GitHub_Actions_runs": 0,
+    "MCMC_runs": 0
+  },
+  "unresolved_hard_gates": [
+    "Real pinned patched CLASS/Cython subclass compatibility",
+    "Resolved-target identity with c13b",
+    "Eight physical starts all finite with Planck/DESI/Pantheon+",
+    "Each likelihood, prior and RIMS normalization phi_ref matches between control and instrumented execution",
+    "Native background and full counts verified on true CLASS",
+    "Instrumentation overhead measured",
+    "Same-uncached-CLASS-budget 3/27 step MCMC comparison has not been run"
+  ],
+  "no_automatic_follow_on": true,
+  "no_automatic_long_run": true,
+  "inference_samples_eligible": false,
+  "production_gate": {
+    "GetDist_Rminus1_strict_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000
+  },
+  "claim_boundary": {
+    "production_posterior": false,
+    "Bayes_factor": false,
+    "model_preference": false,
+    "LambdaCDM_competitiveness": false
+  }
+}
