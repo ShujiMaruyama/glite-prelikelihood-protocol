@@ -7,7 +7,7 @@ c16 established an attempted native `classy.Class.compute()` call counter for th
 
 The delivered ZIP `RIMS_c17_Native_CLASS_Parity_Static_Preflight_20261015.zip` has SHA-256:
 
-`902f00cf70e9d75f4da9b1d6479b8d0cb31dea05ee269172766f524cdf9c4c2c`
+`52ef35f70bcfa53597bc32a310cd8fa2f30c5dcc9e755da1aca9d4c48b893251`
 
 Its complete editable Python source includes `c17_one_point_probe.py`, `c17_pair_audit.py`, `c17_batch_audit.py`, `test_c17_parity.py`, inherited c16 source, C15 input baseline, manifests, and a Japanese README. The **ZIP is supplied as a conversation artifact**, not imported into this GitHub branch. Do not assume these Python files exist on the branch.
 
@@ -20,7 +20,7 @@ Its complete editable Python source includes `c17_one_point_probe.py`, `c17_pair
 - Fail on missing/unpaired/incorrect native CLASS background or full calls, incorrect runtime target, or invalid starts.
 - All eight distinct start points are mandatory: any one missing or failing causes final FAIL.
 
-**Local tests:** c15 (6) + c16 (13) + c17 (14) = **33 PASS**. These are not physical CLASS demonstrations. There is no selected posterior or validation of model competitiveness.
+**Local tests:** c15 (6) + c16 (13) + c17 (15) = **34 PASS**. These are not physical CLASS demonstrations. There is no selected posterior or validation of model competitiveness.
 
 **Next hard gate:** explicitly authorized, *non-MCMC* real CLASS/cosmology one-point parity; all eight physical starts must be evaluated without cherry-picking. A later matched-budget 3-step versus 27-step MCMC experiment remains a separate authorization.
 
