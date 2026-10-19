@@ -1,0 +1,84 @@
+{
+  "schema": "rims-c21-synthetic-shell-identifiability-claim-ledger-2026-10-19",
+  "claim_boundary": "analytic_ideal_gaussian_synthetic_only",
+  "frozen_source": {
+    "master_date": "2026-08-07",
+    "benchmark": "V7 weak",
+    "alpha_U": 0.01,
+    "s_min": 0.12863,
+    "s_max": 0.128846
+  },
+  "exact_numbers": {
+    "u_min": 0.35865024745565144,
+    "u_max": 0.35895125017194185,
+    "u_center": 0.35880074881379664,
+    "half_width": 0.00015050135814520527,
+    "W_center": 0.008712620226506589,
+    "F_intrinsic_center": 0.00015181950242266343,
+    "curvature_sagitta": 2.2650658803551342e-10,
+    "end_to_end_W_drift": 0.00000216,
+    "ideal_5sigma_expected_rel_F_precision_curvature": 8.490757080215625e-9,
+    "ideal_5sigma_95percent_power_rel_F_precision_curvature": 6.3889722459627874e-9,
+    "ideal_5sigma_expected_rel_F_precision_drift": 0.0000701213002589604,
+    "relative_precision_ratio": 8258.545097509686
+  },
+  "geometric_proofs": [
+    "exact midpoint parabola sagitta",
+    "first-order drift vs quadratic curvature",
+    "finite-window C2 mimicker Taylor remainder",
+    "symmetric polynomial Fisher information h^4 scaling",
+    "errors-in-variables first order and correlated covariance warning"
+  ],
+  "completed": {
+    "ideal_MC_replicates_per_noise": 100000,
+    "independent_noise_cases": 6,
+    "seed": 21101926,
+    "local_unit_tests_pass": 22,
+    "local_unit_tests_failed": 0,
+    "clean_Overleaf_pages": 9,
+    "render_diff_pages": 0,
+    "production_MCMC": 0,
+    "real_CLASS_new_runs": 0,
+    "physical_81_trajectory_scan": 0,
+    "GitHub_Actions_dispatched": 0
+  },
+  "eighty_one_scan_static_postprocessor": {
+    "physical_solver_provenance_verified": false,
+    "output_status_even_for_81_toy_rows": "TABLE_81_VALID_PROVENANCE_UNVERIFIED",
+    "missing_duplicate_bad_xi_and_normalization_detected": true
+  },
+  "artifacts": {
+    "c21_cumulative_zip_sha256": "4c20e9cda04727e82205b6ebf3eb09d616678810f82a34fdf7e8d113e0dd0a9a",
+    "c21_overleaf_zip_sha256": "f84217cb759e1a5497e2be05e2e45a7d752e2e4ae4182f91903a373e8304df36",
+    "original_c20_cumulative_preserved_sha256": "3a47c9a25637ae07e2dab7c9c0e741318209af62ebde1a385d22e9692230030f",
+    "full_zip_member_count": 22,
+    "full_zip_internal_hash_pass": true,
+    "repo_contains_source_zip": false
+  },
+  "prior_art_boundary": {
+    "general_Fisher_h4_scaling_not_novel": true,
+    "logistic_mass_map_prior_RIMS": true,
+    "mixed_offset_prior_c19": true,
+    "kinetic_identity_prior_c20": true,
+    "global_novelty_priority": false
+  },
+  "future_gates": [
+    "c18 real-class native parity",
+    "physically executed 81 potential universality trajectories with source receipts",
+    "RIMS intrinsic dark force to observed tracer forward model",
+    "C_NL and survey covariances",
+    "second independent Einstein Boltzmann implementation",
+    "matched Planck2018 DESI_DR2 BAO Pantheon+ production chains"
+  ],
+  "immutable_production": {
+    "GetDist_Rminus1_lt": 0.01,
+    "min_headline_ESS_ge": 1000
+  },
+  "prohibited_claims": {
+    "posterior": true,
+    "Bayes_factor": true,
+    "model_preference": true,
+    "LambdaCDM_competitiveness": true,
+    "observational_detection": true
+  }
+}
