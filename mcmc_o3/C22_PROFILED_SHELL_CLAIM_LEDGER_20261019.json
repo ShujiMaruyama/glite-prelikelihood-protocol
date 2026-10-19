@@ -1,0 +1,63 @@
+{
+  "schema": "rims-c22-projected-curvature-release-index-v1",
+  "date": "2026-10-19",
+  "provenance": {
+    "c21_parent_sha256": "4c20e9cda04727e82205b6ebf3eb09d616678810f82a34fdf7e8d113e0dd0a9a",
+    "c21_git_head": "036413889cc46ea9b18db20a23e96f56203f453b"
+  },
+  "files": {
+    "full_zip": {
+      "name": "RIMS_C22_FULL_DELIVERY_20261019.zip",
+      "sha256": "d92f32c24e9121ae029325610834e10e7673f0c5efe8a66a416efddc81e4ecdc"
+    },
+    "manuscript_pdf": {
+      "name": "RIMS_C22_PAPER_20261019.pdf",
+      "sha256": "4d60e7d600bfb5853445c5bdbf2dab387b3cb9ea77cb1374d479d7cf744db424",
+      "pages": 7
+    },
+    "overleaf_zip": {
+      "name": "RIMS_C22_OVERLEAF_20261019.zip",
+      "sha256": "16bb031f815c31eef64f4de3d8cabb2b520643f86b1ae2bc2826c5dc79155814"
+    },
+    "internal_sha256_entries": 16
+  },
+  "results": {
+    "ideal_independent_21_bin_optimal_over_uniform_information_ratio": 2.335030121888571,
+    "ideal_optimal_50pct_power_5sigma_rel_sigmaF_threshold": 2.380009774511064e-8,
+    "ideal_uniform_50pct_power_5sigma_rel_sigmaF_threshold": 1.557515929149283e-8,
+    "block_covariance_rho025_information_ratio": 0.8602742554327673,
+    "block_covariance_rho09_information_ratio": 0.32560180982515113,
+    "unconstrained_curvature_nuisance_rms_info": "zero exactly in mathematical full-rank projection",
+    "sigma_u_1e8_expected_Z": 4.111308486168751,
+    "known_weak_parent_sagitta": 2.2650658803551342e-10
+  },
+  "checks": {
+    "c22_tests_passed": 18,
+    "untouched_c21_tests_passed": 22,
+    "total_tests_passed": 40,
+    "synthetic_diagnostic_draws_per_setting": 20000,
+    "synthetic_settings": 6,
+    "clean_overleaf_pixel_changed_pages": 0,
+    "clean_overleaf_text_changed_pages": 0,
+    "fonts_embedded": true,
+    "no_undefined_references": true,
+    "no_overfull_underfull": true,
+    "archived_parent_unmodified": true
+  },
+  "claim_limits": {
+    "new_real_CLASS_evaluations": 0,
+    "new_81_physical_background_trajectories": 0,
+    "new_GitHub_Actions_runs": 0,
+    "new_MCMC_runs": 0,
+    "observational_posterior": false,
+    "world_first_novelty": false,
+    "Bayes_factor": false,
+    "model_preference": false,
+    "LambdaCDM_competitiveness": false
+  },
+  "production_gate": {
+    "GetDist_Rminus1_strict_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000
+  },
+  "repo_contains_source_zip": false
+}
