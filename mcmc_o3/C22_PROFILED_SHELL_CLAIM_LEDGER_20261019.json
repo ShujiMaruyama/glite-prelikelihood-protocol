@@ -28,8 +28,8 @@
     "block_covariance_rho025_information_ratio": 0.8602742554327673,
     "block_covariance_rho09_information_ratio": 0.32560180982515113,
     "unconstrained_curvature_nuisance_rms_info": "zero exactly in mathematical full-rank projection",
-    "sigma_u_1e8_expected_Z": 4.111308486168751,
-    "known_weak_parent_sagitta": 2.2650658803551342e-10
+    "known_weak_parent_sagitta": 2.2650658803551342e-10,
+    "sigma_u_1e_minus8_expected_Z": 4.111308486168751
   },
   "checks": {
     "c22_tests_passed": 18,
