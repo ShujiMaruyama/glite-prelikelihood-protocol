@@ -1,0 +1,97 @@
+{
+  "schema": "rims-phaseii-c20-20261019-analytical-synthetic-falsification-audit",
+  "date": "2026-10-19",
+  "stage": "synthetic_only",
+  "previous_c19_head": "c4c5aef2b8b54b1ff88935a66913ac156f6ea583",
+  "conditional_theorem": {
+    "name": "mixed-shell potential-independent kinetic closure",
+    "shell": "W(D)=A-B*(D-C)^2",
+    "composition": "C=D-W_D/W_DD",
+    "kinetic": "Omega_K=(D_N*W_DD/(W*W_D))^2/6",
+    "flat_GR": "Omega_K=-dlnH/dN/3 -Omega_m/2 -2*Omega_r/3",
+    "domain": [
+      "separately conserved coupled/inert pressureless dust",
+      "single canonical scalar",
+      "flat Einstein GR",
+      "intrinsic force plateau",
+      "no unaccounted components",
+      "monotone positive shell",
+      "finite derivatives"
+    ],
+    "originality_claim": "conditional candidate cross-channel overidentification; broad priority not established"
+  },
+  "synthetic_background": {
+    "method": "solve Raychaudhuri H2 ODE, reconstruct V(phi) from Friedmann",
+    "max_shell_kinetic_GR_abs_null": 6.938893903907228e-17,
+    "max_numeric_HN_error": 9.825769797799921e-8,
+    "max_numeric_KG_residual": 0.0000010632162783519306,
+    "physical_CLASS_run": false
+  },
+  "synthetic_covariance_stress": {
+    "seed": 20102026,
+    "replicates_per_case": 1500,
+    "train": 6,
+    "held_out": 6,
+    "sigmaD": [
+      0,
+      0.01,
+      0.03
+    ],
+    "null_naive_rejections": [
+      66,
+      826,
+      1481
+    ],
+    "null_joint_rejections": [
+      66,
+      92,
+      118
+    ],
+    "quartic_joint_rejections": [
+      79,
+      82,
+      106
+    ],
+    "null_branch_pass": [
+      1242,
+      1076,
+      741
+    ],
+    "nominal_chisquare_reference_not_calibrated_for_noisyD": true,
+    "physical_observation": false
+  },
+  "tests": {
+    "c20_pass": 15,
+    "c20_fail": 0,
+    "clean_overleaf_rebuild": true,
+    "pdf_pages": 7,
+    "pdf_fonts_embedded": true,
+    "undefined_cites": 0,
+    "overfull_underfull": 0
+  },
+  "artifacts": {
+    "c20_full_cumulative_zip_sha256": "3a47c9a25637ae07e2dab7c9c0e741318209af62ebde1a385d22e9692230030f",
+    "c20_overleaf_zip_sha256": "a15a3d493a8d7b114c6074ed2b32de623dcf0cffeb7e7ccee9e5344f34277937",
+    "c19_preserved_full_zip_sha256": "0bbc48962f6c8bd18d74a105400c63699576ebb119e6ccf3ddc02d45b0470ce6",
+    "delivery_file_count": 17,
+    "all_manifest_files_integrity_pass": true,
+    "github_source_release_attached_in_chat_only": true
+  },
+  "no_real_CLASS_parity": true,
+  "no_81_potential_scan": true,
+  "no_independent_second_code": true,
+  "no_mcmc": true,
+  "no_new_actions_dispatch": true,
+  "no_auto_followon": true,
+  "production_gate": {
+    "GetDist_Rminus1_strict_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000
+  },
+  "claims": {
+    "production_posterior": false,
+    "physical_preference": false,
+    "LambdaCDM_competitiveness": false,
+    "Bayes_factor": false,
+    "novelty_priority": false
+  }
+}
