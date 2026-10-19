@@ -1,0 +1,78 @@
+{
+  "schema": "rims-phaseii-c19-distinctiveness-falsification-checkpoint-v1",
+  "date": "2026-10-19",
+  "stage": "analytical_extension_and_synthetic_audit_only",
+  "source_lineage": {
+    "original_c18_zip_sha256": "7efd06d6587ac06ba6203224345d15b91a6a0f74f43a00096af64bbfcea341bb",
+    "frozen_RIMS_transformative_master_pdf_sha256": "f0ea95ac9b9361e030c87067cce3ae45a5afa89e85cbc65663c782a8495941fb",
+    "prior_c18_git_head": "c1f1efb725976acdded80000cde11add6ad7de7d"
+  },
+  "formal_assumptions": [
+    "coupled scalar mass m_d=m_U sqrt(s) with logistic s",
+    "separate conserved dark species d,c",
+    "uncoupled species is pressureless with C=a^3 rho_c constant",
+    "positive alpha_U branch in intrinsic-force-root W",
+    "deep-subhorizon intrinsic F_d=2 alpha_d^2, not bulk galaxy Euler",
+    "linear scalar perturbations in Newtonian-gauge Euler cross-identity"
+  ],
+  "exact_results": {
+    "mixed_shell": "W=A-B(D-C)^2; B=A/K^2; D=a^3(rho_c+rho_d)",
+    "curvature_vertex": "C=D-(dW/dD)/(d2W/dD2)",
+    "composition": "f_d=1-C/D; f_d_prime=C D_prime/D^2",
+    "all_k_euler_cross_null": "(Theta_d-Theta_c)' + Hcal*(Theta_d-Theta_c) + D'/(D-C)*Theta_d - k^2*(deltaE_d-deltaN_d) =0",
+    "bulk_mixture": "Theta_T' + Hcal*Theta_T - k^2 Psi = f_d*k^2*alpha_d*delta_phi - f_d*D'/(D-C)*Theta_d + f_d'*(Theta_d-Theta_c)"
+  },
+  "novelty_boundary": {
+    "genuinely_new_to_prior_RIMS_manuscript": "offset total dark density shell plus reuse same inferred inert comoving C in all-k Euler and exact bulk mixing closure; numerical identifiability audit",
+    "known_not_novel": [
+      "scalar dark coupling",
+      "partly coupled DM",
+      "dark Euler fifth force",
+      "gravitational redshift degeneracy breaking",
+      "coupled-only affine RIMS inverse",
+      "generic Euler subtraction",
+      "quadratic fit as mathematical shape"
+    ],
+    "global_priority_proved": false,
+    "cosmological_detection": false,
+    "observational_prediction_calibrated": false
+  },
+  "executed": {
+    "synthetic_seed": 19102026,
+    "synthetic_replicates": 2000,
+    "invented_A": 0.06,
+    "invented_C": 0.1,
+    "invented_K": 0.9,
+    "invented_sigma_W": 0.00075,
+    "assumed_rho": 0.25,
+    "positive_branch_fits": 1609,
+    "rejected_branch_fits": 391,
+    "alternative_holdout_covariance_norm": 0.5472712535587302,
+    "alternative_metric_is_detection_significance": false,
+    "unit_tests_pass": 10,
+    "real_class_runs": 0,
+    "production_mcmc_runs": 0,
+    "new_actions_runs": 0
+  },
+  "mandatory_next_gates": [
+    "actual c18 native CLASS parity all 8 starts",
+    "real two-fluid forward transfer to observable galaxy tracer",
+    "independently calibrated D and intrinsic W or valid joint hierarchical inference",
+    "covariance includes D-W dependence and nonlinear theory/systematics",
+    "potential families 3x3x3x3=81 executed scan",
+    "independent second Einstein-Boltzmann code",
+    "matched Planck/DESI/Pantheon+ inference production convergence"
+  ],
+  "production_thresholds": {
+    "GetDist_Rminus1_strict_lt": 0.01,
+    "min_headline_ESS_ge": 1000
+  },
+  "claims": {
+    "model_preference": false,
+    "Bayes_factor": false,
+    "LambdaCDM_competitiveness": false,
+    "posterior": false
+  },
+  "automatic_follow_on": false,
+  "workflow_registered": false
+}
