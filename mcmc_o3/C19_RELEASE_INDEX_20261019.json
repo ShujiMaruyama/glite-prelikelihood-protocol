@@ -1,0 +1,28 @@
+{
+  "schema": "rims-c19-release-manifest-v1",
+  "date": "2026-10-19",
+  "full_delivery_filename": "RIMS_C19_FULL_DELIVERY_20261019.zip",
+  "full_delivery_sha256": "0bbc48962f6c8bd18d74a105400c63699576ebb119e6ccf3ddc02d45b0470ce6",
+  "full_delivery_file_count": 17,
+  "supplementary_pdf_filename": "C19_EXTENSION_NOTE.pdf",
+  "supplementary_pdf_pages": 8,
+  "supplementary_pdf_sha256": "be9914516b182fc7fe479b6ca7feab8eef51121ceb6e0df5747d9ae243d1b802",
+  "overleaf_filename": "OVERLEAF_C19_SUPPLEMENT_20261019.zip",
+  "overleaf_sha256": "128d3584f52cfa066fb7ae78d6fe9df78a91b1516dc5adbf2cf89cd0ee9fea87",
+  "baseline_pdf_sha256": "f0ea95ac9b9361e030c87067cce3ae45a5afa89e85cbc65663c782a8495941fb",
+  "c18_original_zip_sha256": "7efd06d6587ac06ba6203224345d15b91a6a0f74f43a00096af64bbfcea341bb",
+  "clean_checkout_checks": {
+    "internal_sha256_manifest": "PASS",
+    "unit_tests": "10/10 PASS",
+    "synthetic_json_byte_replay": "PASS",
+    "toy_csv_byte_replay": "PASS",
+    "overleaf_clean_pdf_build": "PASS",
+    "missing_reference_and_warning_count": 0,
+    "overfull_underfull_count": 0
+  },
+  "distributed_as_conversation_artifacts": true,
+  "source_and_pdf_committed_to_GitHub": false,
+  "github_has": "scientific checkpoint, machine-readable claim ledger, this release index only",
+  "github_actions_dispatched": 0,
+  "production_claims": false
+}
