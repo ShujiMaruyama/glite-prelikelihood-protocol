@@ -64,7 +64,7 @@
     "retain_solver_failed": true,
     "retain_physical_rejected": true,
     "retain_missing_provenance": true,
-    "never_promote_synthetic": false,
+    "never_promote_synthetic": true,
     "history_complete_only_if_81_receipts_present": true,
     "automatic_follow_on": false,
     "all_81_physical_valid_not_required_to_record_failed_sweep": true,
