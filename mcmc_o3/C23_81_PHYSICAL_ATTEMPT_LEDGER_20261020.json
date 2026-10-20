@@ -1,0 +1,97 @@
+{
+  "schema": "RIMS_C23_81_ATTEMPT_GATED_EXECUTION_CHECKPOINT_V1",
+  "date": "2026-10-20",
+  "origin": {
+    "branch": "rims-c22-profiled-shell-observability-20261019",
+    "head_sha": "6053f6bea73c2ceeb118f3cbe5d8040c42412060",
+    "original_c22_zip_sha256": "d92f32c24e9121ae029325610834e10e7673f0c5efe8a66a416efddc81e4ecdc"
+  },
+  "new_c23_design": {
+    "potential": [
+      "exponential",
+      "quadratic",
+      "quartic"
+    ],
+    "alpha_U": [
+      0.01,
+      0.05,
+      0.1
+    ],
+    "Omega_phi0": [
+      0.001,
+      0.03,
+      0.09
+    ],
+    "s_i": [
+      0.1,
+      0.3333333333333333,
+      0.65
+    ],
+    "fixed_H0": 68.02,
+    "omega_b": 0.02246,
+    "omega_dm": 0.11852,
+    "inert_dm_fraction": 0.1,
+    "ncases": 81,
+    "freeze_hash": "0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0",
+    "freeze_date": "2026-10-20",
+    "not_identical_to_past_preregistered_numeric_levels_claim": true
+  },
+  "source": {
+    "upstream_class_git_commit": "e85808324f51fc694d12e3ed7439552a3c3f9540",
+    "patches_sha256": [
+      "6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74",
+      "c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc"
+    ],
+    "github_code_uploaded": false,
+    "chat_zip_contains_full_source": true
+  },
+  "executed": {
+    "source_generated_81": true,
+    "unique_case_ids": 81,
+    "source_input_integrity_pass": true,
+    "new_mock_unit_tests_pass": 16,
+    "new_mock_unit_tests_fail": 0,
+    "clean_integrated_pdf_pages": 11,
+    "pdf_font_embedding": true,
+    "latex_undefined_cites": 0,
+    "latex_overfull_underfull": 0,
+    "native_RIMS_CLASS_background_trajectories": 0,
+    "GitHub_Actions_runs": 0,
+    "new_MCMC_runs": 0,
+    "production_posteriors": 0
+  },
+  "audit_policy": {
+    "retain_solver_failed": true,
+    "retain_physical_rejected": true,
+    "retain_missing_provenance": true,
+    "never_promote_synthetic": false,
+    "history_complete_only_if_81_receipts_present": true,
+    "automatic_follow_on": false,
+    "all_81_physical_valid_not_required_to_record_failed_sweep": true,
+    "shell_stability_on_all_native_samples_in_z0to3": true
+  },
+  "artifacts": {
+    "full_zip_name": "RIMS_C23_CUMULATIVE_DELIVERY_20261020.zip",
+    "full_zip_sha256": "2bc9e4377f0991f05e700e91cf6eb49d5d0fe59f8af603525b2a5d646c0089e5",
+    "pdf_sha256": "c2b8726a44eba87ac8a5137a03ebb242e5d55cd7f396d6b30ac49979fde34de8",
+    "overleaf_zip_sha256": "7fa345f134bbb1f81567bac7ccfcafc9ab0b2e6296ee12b96f273deabb6ebbe2",
+    "full_manifest_SHA256_verified": true
+  },
+  "novelty_limit": {
+    "field_dependent_mass_prior_known": true,
+    "DESI_coupled_DE_prior_known": true,
+    "novelty_candidate": "fixed bounded-shell cross-channel overidentification with physical stability and non-cherry-picked reachability",
+    "world_first_claim": false,
+    "transformative_discovery_claim": false
+  },
+  "production_gates": {
+    "GetDist_Rminus1_lt": 0.01,
+    "min_headline_ESS_ge": 1000
+  },
+  "prohibited_claims": {
+    "Bayes_factor": true,
+    "observational_detection": true,
+    "LambdaCDM_competitiveness": true,
+    "production_posterior": true
+  }
+}
