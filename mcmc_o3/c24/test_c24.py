@@ -1,5 +1,5 @@
 """Synthetic-only regression tests. A PASS never demonstrates physical CLASS correctness."""
-import copy,hashlib,json,sys
+import json,sys
 from pathlib import Path
 import numpy as np
 import pytest
@@ -38,9 +38,6 @@ def test_frozen_hash_and_81_unique():
 def test_source_mutation_rejected():
     m=f.build_manifest();m["cases"][0]["alpha_U"]=0.2
     with pytest.raises(ValueError):f.verify(m)
-def test_native_good():
-    r,d=run(tmp_path=__import__("tempfile").TemporaryDirectory().name) if False else (None,None)
-    assert r is None and d is None
 def test_good_case(tmp_path):
     r,d=run(tmp_path)
     assert r["native_compute_attempts"]==2
