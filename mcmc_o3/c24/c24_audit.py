@@ -103,6 +103,8 @@ def audit_case(case,m,folder):
         "visibility":("shielded" if xi<1 else "transitional" if xi<10 else "resolved_QS"),
         "s_span":[min(s),max(s)],"W_sagitta":case["alpha_U"]*h*h,
         "fractional_W_sagitta":h*h/(1-uc*uc),
+        "idealized_three_node_expected_5sigma_50pct_power_relative_F_error_ceiling":2*h*h/((1-uc*uc)*5*math.sqrt(1.5)),
+        "idealized_design_only":True,
         "native_compute_attempts":n,"binary_sha256":r["binary_sha256"]}
 def audit(m,root):
     verify(m);root=Path(root)
