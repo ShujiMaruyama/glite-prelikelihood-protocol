@@ -107,6 +107,24 @@ def run_case(classy,case,manifest,out):
             mr=np.asarray(bg[field_key(bg,"rims_mratio",("rims","mratio"))],float)
             m2=np.asarray(bg[field_key(bg,"rims_m2eff_over_H2",("rims","m2","h2"))],float)
             if z.ndim!=1 or not(z.shape==phi.shape==mr.shape==m2.shape):raise RuntimeError("CLASS background array shape mismatch")
+            # c26: independently report whether CLASS actually reached the
+            # initial shell occupancy specified in the frozen design.
+            # This is an ADDITIONAL science gate, not a substitute for c25
+            # numerical receipt, nor a production-likelihood validation.
+            try:
+                from c26_occupancy_gate import derive_initial_gate
+                receipt["c26_initial_shell"] = derive_initial_gate(case,z,phi)
+                event(f,"c26_initial_occupancy_gate",{
+                    "gate":receipt["c26_initial_shell"]["gate"],
+                    "initial_z":receipt["c26_initial_shell"]["earliest_z"],
+                    "source_case_sha256":case["input_sha256"]})
+            except Exception as exc:
+                receipt["c26_initial_shell"] = {"schema":"rims-c26-early-shell-occupancy-v1",
+                    "gate":"INITIAL_GATE_DATA_ERROR","error_type":type(exc).__name__,
+                    "case_id":case["id"],"case_sha256":case["input_sha256"]}
+                event(f,"c26_initial_occupancy_gate",{"gate":"INITIAL_GATE_DATA_ERROR",
+                    "source_case_sha256":case["input_sha256"]})
+
             if not np.all(np.isfinite(z)):raise RuntimeError("nonfinite redshift coordinates, cannot safely filter z=0..3")
             inside=(z>=0)&(z<=3)
             receipt["native_z_total_rows"]=int(len(z))
