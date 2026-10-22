@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Manual-only patched RIMS V18.29 CLASS background executor. No MCMC or likelihood."""
 from __future__ import annotations
-import argparse,hashlib,json,math,subprocess,time
+import argparse,hashlib,importlib,importlib.machinery,json,math,subprocess,sys,time
 from pathlib import Path
 import numpy as np
 from c23_freeze import build_manifest,verify
@@ -35,10 +35,21 @@ def base_args(case):
 # STILL triggers a perturbation requirement in input_read_parameters_nonlinear.
 # Pure background-only runs must OMIT that key entirely when output="".
 # The actual r28 failure diagnosis is GitHub Actions run 39741330265.
+def class_compiled_module_path(classy):
+    # CLASS' package __init__.py is a Python wrapper, not the native solver.
+    # The actual Cython extension is the module defining Class.
+    modname=classy.Class.__module__
+    module=sys.modules.get(modname)
+    if module is None:
+        module=importlib.import_module(modname)
+    file=getattr(module,"__file__",None)
+    if not file:raise RuntimeError("Class implementation module has no physical source path")
+    return Path(file).resolve(strict=True)
+
 def run_case(classy,case,manifest,out):
     folder=Path(out)/case["id"];folder.mkdir(parents=True,exist_ok=False)
     log=folder/"native_compute.log"
-    binary=Path(classy.__file__).resolve(strict=True)
+    binary=class_compiled_module_path(classy)
     receipt={"schema":"rims-c23-native-background-attempt-v1",
         "id":case["id"],"case_sha256":case["input_sha256"],
         "source_freeze_hash":manifest["freeze_hash"],
@@ -180,7 +191,9 @@ def verify_pinned_environment(src,base_patch,delta_patch,m):
     if not subprocess.check_output(["git","-C",str(src),"diff","--name-only"],text=True).strip():
         raise RuntimeError("patched RIMS source diff absent")
     import classy
-    binary=Path(classy.__file__).resolve(strict=True)
+    binary=class_compiled_module_path(classy)
+    if not any(str(binary).endswith(x) for x in importlib.machinery.EXTENSION_SUFFIXES):
+        raise RuntimeError("Class is not backed by native compiled extension: "+str(binary))
     if src not in binary.parents:raise RuntimeError("imported CLASS binary outside pinned patched source: "+str(binary))
     return classy
 
