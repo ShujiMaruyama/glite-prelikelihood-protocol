@@ -54,6 +54,11 @@ def audit_case(case,m,folder):
             elif e.get("kind")!=start_by_index[index].get("kind"):issues.append("native_event_kind_changed")
             done.add(index)
         if done!=set(start_by_index):issues.append("unpaired_native_compute_start")
+        if len(extracts)>1:
+            issues.append("duplicate_background_extract_exception")
+        for e in exits:
+            if e.get("event")=="native_compute_end" and e.get("success") is not True:
+                issues.append("native_compute_end_without_success_flag")
         for e in extracts:
             idx=e.get("index")
             if idx not in start_by_index or idx not in done or e.get("kind")!=start_by_index[idx].get("kind"):
