@@ -25,12 +25,16 @@ def base_args(case):
         "gauge":"synchronous","ic":"ad","scf_parameters":case["scf_parameters"],
         "attractor_ic_scf":"no","scf_tuning_index":0,
         "recombination":"HYREC","reio_parametrization":"reio_camb",
-        "idm_soundspeed":"no","non_linear":"none","rims_enabled":"yes",
+        "idm_soundspeed":"no","rims_enabled":"yes",
         "rims_enforce_stability":"yes","rims_stability_tolerance":1e-10,
         "rims_normalization_tolerance":1e-8,
         "rims_subleading_adiabatic_ic":"yes","rims_regular_standard_ic":"yes",
         "rims_alpha_U":case["alpha_U"],"rims_phi_transition":case["phi_t"],"output":""}
 
+# For CLASS upstream e858083..., explicitly supplying non_linear='none'
+# STILL triggers a perturbation requirement in input_read_parameters_nonlinear.
+# Pure background-only runs must OMIT that key entirely when output="".
+# The actual r28 failure diagnosis is GitHub Actions run 39741330265.
 def run_case(classy,case,manifest,out):
     folder=Path(out)/case["id"];folder.mkdir(parents=True,exist_ok=False)
     log=folder/"native_compute.log"
@@ -40,7 +44,7 @@ def run_case(classy,case,manifest,out):
         "source_freeze_hash":manifest["freeze_hash"],
         "Class_upstream_commit":manifest["Class_upstream_commit"],
         "RIMS_patch_sha256":manifest["RIMS_patch_sha256"],
-        "code_version":"c25_native_background_v3","MCMC":False,
+        "code_version":"c28_native_background_v4","MCMC":False,
         "synthetic_fixture":False,"run_status":"solver_error",
         "native_compute_attempts":0,"normalization_iteration_success":False,
         "binary_path":str(binary),"binary_sha256":hashlib.sha256(binary.read_bytes()).hexdigest()}
