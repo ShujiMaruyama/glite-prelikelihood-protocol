@@ -121,6 +121,20 @@ jobs:
             --native-history c28_results/native/rims_000/c27_full_history_z_phi.json \
             --out c28_results/c27_full_history_audit.json
 
+      - name: Write explicit audit record even if native background fails
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          if test -f C23_FROZEN_81.json && test -f c28_results/native/rims_000/receipt.json && ! test -f c28_results/c24_audit.json; then
+            python mcmc_o3/c24/c24_audit.py \
+              --manifest C23_FROZEN_81.json \
+              --receipts c28_results/native --out c28_results/failure_aware_audit.json \
+              --one rims_000
+            audit_rc=$?
+            printf 'Failure-aware audit exit code (2 = non-PHYSICAL_VALID): %s\\n' "$audit_rc" > c28_results/failure_aware_audit_status.txt
+          fi
+
       - name: Package complete evidence, including failure paths
         if: always()
         shell: bash
