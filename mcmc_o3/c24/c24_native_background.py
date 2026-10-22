@@ -107,6 +107,20 @@ def run_case(classy,case,manifest,out):
             mr=np.asarray(bg[field_key(bg,"rims_mratio",("rims","mratio"))],float)
             m2=np.asarray(bg[field_key(bg,"rims_m2eff_over_H2",("rims","m2","h2"))],float)
             if z.ndim!=1 or not(z.shape==phi.shape==mr.shape==m2.shape):raise RuntimeError("CLASS background array shape mismatch")
+            # c27: freeze the full, UNFILTERED final native CLASS z/phi vectors.
+            # This raw history is independently compared with the c26
+            # earliest-epoch statement; neither data file is a second solver.
+            from c27_history_integrity import make_history_payload, canonical_json_bytes
+            original_history=make_history_payload(case,manifest,z,phi)
+            original_bytes=canonical_json_bytes(original_history)
+            original_path=folder/"c27_full_history_z_phi.json"
+            with original_path.open("xb") as source_file:
+                source_file.write(original_bytes)
+            receipt["c27_native_history_sha256"]=hashlib.sha256(original_bytes).hexdigest()
+            event(f,"c27_full_native_history_export",{
+                "sha256":receipt["c27_native_history_sha256"],
+                "source_case_sha256":case["input_sha256"],
+                "all_unfiltered_native_rows":len(z)})
             # c26: independently report whether CLASS actually reached the
             # initial shell occupancy specified in the frozen design.
             # This is an ADDITIONAL science gate, not a substitute for c25
