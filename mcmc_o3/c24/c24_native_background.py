@@ -40,7 +40,7 @@ def run_case(classy,case,manifest,out):
         "source_freeze_hash":manifest["freeze_hash"],
         "Class_upstream_commit":manifest["Class_upstream_commit"],
         "RIMS_patch_sha256":manifest["RIMS_patch_sha256"],
-        "code_version":"c24_native_background_v2","MCMC":False,
+        "code_version":"c25_native_background_v3","MCMC":False,
         "synthetic_fixture":False,"run_status":"solver_error",
         "native_compute_attempts":0,"normalization_iteration_success":False,
         "binary_path":str(binary),"binary_sha256":hashlib.sha256(binary.read_bytes()).hexdigest()}
@@ -48,18 +48,38 @@ def run_case(classy,case,manifest,out):
     def event(f,label,fields):
         f.write(json.dumps({"event":label,"mono_seconds":time.monotonic()-t0,**fields},sort_keys=True)+"\n");f.flush()
     def calculate(f,params,kind):
-        obj=classy.Class()
+        # Setup and extraction failures are NOT failed native compute() calls.
+        # Every native compute() START has one SUCCESS or EXCEPTION event.
         try:
-            obj.set(**params)
+            obj=classy.Class()
+        except BaseException as ex:
+            event(f,"native_setup_exception",{"kind":kind,"stage":"Class_constructor",
+                  "error_type":type(ex).__name__,"error":str(ex)[:400]})
+            raise
+        try:
+            try:
+                obj.set(**params)
+            except BaseException as ex:
+                event(f,"native_setup_exception",{"kind":kind,"stage":"Class.set",
+                      "error_type":type(ex).__name__,"error":str(ex)[:400]})
+                raise
             receipt["native_compute_attempts"]+=1
             idx=receipt["native_compute_attempts"]
             event(f,"native_compute_start",{"index":idx,"kind":kind})
-            try:obj.compute()
+            try:
+                obj.compute()
             except BaseException as ex:
-                event(f,"native_compute_exception",{"index":idx,"kind":kind,"error_type":type(ex).__name__,"error":str(ex)[:400]})
+                event(f,"native_compute_exception",{"index":idx,"kind":kind,
+                      "error_type":type(ex).__name__,"error":str(ex)[:400]})
                 raise
             event(f,"native_compute_end",{"index":idx,"kind":kind,"success":True})
-            return {k:np.asarray(v) for k,v in obj.get_background().items()}
+            try:
+                result=obj.get_background()
+                return {k:np.asarray(v) for k,v in result.items()}
+            except BaseException as ex:
+                event(f,"native_extract_exception",{"index":idx,"kind":kind,
+                      "error_type":type(ex).__name__,"error":str(ex)[:400]})
+                raise
         finally:
             try:obj.empty()
             except Exception:pass
