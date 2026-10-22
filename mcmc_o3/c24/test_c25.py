@@ -67,7 +67,7 @@ def test_postcompute_background_extraction_failure_separate(tmp_path):
 def test_logged_setup_fail_event_cannot_be_removed_undetected(tmp_path):
     r,a,e=exercise(tmp_path,"set")
     log=tmp_path/"rims_000"/"native_compute.log"
-    log.write_text("".join(json.dumps(x)+"\\n" for x in e if x["event"]!="native_setup_exception"))
+    log.write_text("".join(json.dumps(x)+"\n" for x in e if x["event"]!="native_setup_exception"))
     receipt=tmp_path/"rims_000"/"receipt.json"
     from hashlib import sha256
     obj=json.loads(receipt.read_text());obj["log_sha256"]=sha256(log.read_bytes()).hexdigest()
