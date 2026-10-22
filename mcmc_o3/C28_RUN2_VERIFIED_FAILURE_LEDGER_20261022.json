@@ -1,0 +1,51 @@
+{
+  "schema": "RIMS_C28_FAILED_REAL_NATIVE_RUN_POSTMORTEM_AND_FIX_V1",
+  "date": "2026-10-22",
+  "source_of_truth": {
+    "failed_run_id": 39741330265,
+    "failed_workflow_run_number": 2,
+    "failed_branch": "rims-c27-source-bound-early-history-20261022",
+    "original_frozen_case": "rims_000",
+    "case_sha256": "e95f274bbafd51e117c9286480da1be42278c1e4def4aae447c1968dc0471e61",
+    "frozen81_sha256": "0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0",
+    "artifact_id": 12409746244,
+    "downloaded_artifact_sha256": "4d1542c02e67763c8f18171086563678456b6acf05516f99da2ff609060c1349",
+    "actual_native_compute_attempts": 1,
+    "CLASS_error_class": "CosmoSevereError",
+    "root_cause": "CLASS input_read_parameters_nonlinear rejects supplied non_linear key with has_perturbations==FALSE even if its string value is none",
+    "c27_native_compile": "success",
+    "c27_static_tests": 56,
+    "background_physics_solution": false,
+    "physical_81_trajectories": 0
+  },
+  "repair": {
+    "new_branch": "rims-c28-background-input-fix-20261022",
+    "change": "remove non_linear key entirely when output empty, preserve background-only mode",
+    "compiled_binary_attestation_correction": "hash __file__ of module defining classy.Class (native _classy extension), not package __init__.py; verify extension suffix and pinned path",
+    "c28_new_unit_tests_committed": 4,
+    "expected_branch_static_pytest_tests": 60,
+    "failure_preserving_postmortem_audit": true,
+    "changed_frozen_cosmology_inputs": false,
+    "changed_native_upstream_or_patches": false,
+    "new_workflow": ".github/workflows/rims-phaseii-c28-corrected-background-smoke.yml",
+    "new_workflow_manual_only": true,
+    "default_run_mode": "static-only",
+    "optional_single_case": "rims_000",
+    "actions_dispatched_by_assistant": 0,
+    "new_branch_tests_run_in_Github": false,
+    "new_physics_attempts": false
+  },
+  "claim_boundary": {
+    "not_physical_instability": true,
+    "not_mass_shell_prediction_falsification": true,
+    "not_observational_inference": true,
+    "no_Bayes_factor": true,
+    "no_LambdaCDM_preference": true,
+    "c18_parity_still_pending": true,
+    "second_independent_Einstein_Boltzmann_pending": true
+  },
+  "production_gates": {
+    "GetDist_Rminus1_strict_lt": 0.01,
+    "min_headline_ESS_ge": 1000
+  }
+}
