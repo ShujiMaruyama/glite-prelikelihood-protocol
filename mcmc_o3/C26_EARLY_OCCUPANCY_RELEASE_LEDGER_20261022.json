@@ -1,0 +1,72 @@
+{
+  "schema": "RIMS_C26_EARLY_OCCUPANCY_REPRODUCIBILITY_LEDGER_V1",
+  "date": "2026-10-22",
+  "scope": "frozen grid physical-start fidelity; no novelty or cosmological inference claim",
+  "source": {
+    "parent_branch": "rims-c25-failure-receipt-hardening-20261022",
+    "parent_git_head": "eb5f994be0f4dce3a6512d6c219df593e85f4b71",
+    "frozen_81_design_sha256": "0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0",
+    "c26_source_git_blobs": {
+      "module": "51d7c28851a6f599d7189de90a6b742f17e32b79",
+      "test_module": "049afe531a873c0e561b446ca8c464d43429364f",
+      "native_receipt_bridge": "2b41eab61b88f3c2d1d69a8b1344959a1b2e59db",
+      "test_native_receipt_bridge": "8a5e372706b4e23c64cc21f25aa09d63801c550a"
+    },
+    "local_and_Github_c26_module_blobs_byte_identical": true,
+    "git_branch_contains_native_runner_early_occupancy_hook": true
+  },
+  "new_hard_gate": {
+    "initial_value": "s_i=1/(1+exp[-2 alpha_U (phi_i-phi_t)])",
+    "recovered_from_native": "s_i_CLASS=1/(1+exp[-2 alpha_U (phi_CLASS(z_max)-phi_t)])",
+    "minimum_early_redshift": 1000,
+    "absolute_s_difference_tolerance": 0.001,
+    "statuses": [
+      "EARLY_OCCUPANCY_PASS",
+      "INITIAL_OCCUPANCY_MISMATCH",
+      "UNRESOLVED_EARLY_EPOCH",
+      "INITIAL_GATE_DATA_ERROR"
+    ],
+    "thresholds_are_new_c26_protocol_not_observation": true,
+    "extra_physical_gates_not_satisfied": [
+      "achieved present Omega_phi0 target",
+      "full native CLASS baseline parity",
+      "all 81 native physical backgrounds",
+      "inference/nonlinear/2nd solver"
+    ]
+  },
+  "verified": {
+    "local_test_archived_c23_c24": 27,
+    "local_test_new_c26": 19,
+    "local_test_total": 46,
+    "local_test_failures": 0,
+    "latest_c26_GitHub_actions_runs": 0,
+    "real_CLASS_background_executions": 0,
+    "actual_physical_initial_s_checks": 0,
+    "github_manual_workflow_registered": true,
+    "main_workflow_identical_to_branch": true,
+    "manual_safe_default": "static-only",
+    "optional_explicit_manual_mode": "single-case",
+    "automatic_follow_on": false,
+    "production_MCMC": false
+  },
+  "deliverable": {
+    "filename": "RIMS_C26_EARLY_OCCUPANCY_GATE_20261022.zip",
+    "sha256": "80bde37ca1fb791fe84260d9ad1ad6bc6f3926e1fb73f2b4d6d6cb5c67c92253",
+    "internal_sha256_manifest_verified": true,
+    "contains_original_c25_archive": true,
+    "contains_archived_c23_c24_27_tests": true,
+    "contains_new_c26_19_tests": true,
+    "github_latest_native_runner_not_mirrored_in_zip": true
+  },
+  "scientific_claim_boundaries": {
+    "RIMS_is_theory_only_unconstrained": true,
+    "claim_of_new_physical_discovery": false,
+    "claim_of_observational_model_preference": false,
+    "claim_of_full_prior_art_priority": false,
+    "c26_is_science_integrity_infrastructure_not_new_dark_fifth_force": true
+  },
+  "production_gates": {
+    "GetDist_Rminus1_strict_lt": 0.01,
+    "min_headline_ESS_ge": 1000
+  }
+}
