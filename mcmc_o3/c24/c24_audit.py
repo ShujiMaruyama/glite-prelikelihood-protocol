@@ -16,11 +16,11 @@ def audit_case(case,m,folder):
     frozen={"id":case["id"],"case_sha256":case["input_sha256"],
         "source_freeze_hash":m["freeze_hash"],"Class_upstream_commit":m["Class_upstream_commit"],
         "RIMS_patch_sha256":m["RIMS_patch_sha256"],"schema":"rims-c23-native-background-attempt-v1",
-        "MCMC":False,"synthetic_fixture":False,"code_version":"c24_native_background_v2"}
+        "MCMC":False,"synthetic_fixture":False,"code_version":"c25_native_background_v3"}
     for k,v in frozen.items():
         if r.get(k)!=v:issues.append("bad_"+k)
     n=r.get("native_compute_attempts")
-    if not isinstance(n,int) or n<1:issues.append("missing_native_attempts")
+    if not isinstance(n,int) or n<0:issues.append("invalid_native_attempt_count")
     if not log.is_file():issues.append("missing_native_event_log")
     else:
         if sha_file(log)!=r.get("log_sha256"):issues.append("native_log_sha256_mismatch")
@@ -31,6 +31,17 @@ def audit_case(case,m,folder):
                 if not isinstance(event,dict) or "event" not in event:raise ValueError()
                 events.append(event)
             except (ValueError,TypeError):issues.append("invalid_event_"+str(j))
+        setups=[e for e in events if e.get("event")=="native_setup_exception"]
+        extracts=[e for e in events if e.get("event")=="native_extract_exception"]
+        if n==0 and r.get("run_status")=="solver_error" and not setups:
+            issues.append("zero_native_calls_without_recorded_setup_failure")
+        if n==0 and r.get("run_status")=="solver_completed":
+            issues.append("zero_native_calls_in_successful_receipt")
+        if setups and (r.get("run_status")!="solver_error" or
+                       any(e.get("stage") not in ("Class_constructor","Class.set") for e in setups)):
+            issues.append("invalid_setup_exception_event")
+        if extracts and r.get("run_status")!="solver_error":
+            issues.append("extraction_error_in_success_receipt")
         starts=[e for e in events if e.get("event")=="native_compute_start"]
         exits=[e for e in events if e.get("event") in ("native_compute_end","native_compute_exception")]
         if len(starts)!=n:issues.append("native_log_compute_count_mismatch")
@@ -43,6 +54,12 @@ def audit_case(case,m,folder):
             elif e.get("kind")!=start_by_index[index].get("kind"):issues.append("native_event_kind_changed")
             done.add(index)
         if done!=set(start_by_index):issues.append("unpaired_native_compute_start")
+        for e in extracts:
+            idx=e.get("index")
+            if idx not in start_by_index or idx not in done or e.get("kind")!=start_by_index[idx].get("kind"):
+                issues.append("extract_exception_without_successful_native_compute")
+        if setups and len(setups)>1:
+            issues.append("duplicate_setup_exception")
         if r.get("run_status")=="solver_completed":
             if any(e.get("event")=="native_compute_exception" for e in exits):issues.append("native_exception_in_successful_receipt")
             if sum(e.get("kind")=="final_background" for e in starts)!=1:issues.append("full_compute_not_once")
@@ -93,7 +110,7 @@ def audit(m,root):
     if len(native_bins)>1:completed=False
     return {"schema":"rims-c24-81-attempt-integrity-v1","source_freeze_hash":m["freeze_hash"],
       "native_provenance_level":"self-reported native execution receipts + GitHub runner log; not cryptographically independently attested",
-      "statuses":dict(counts),"all_81_documented":completed,"binary_sha256_consistent_valid_cases":len(native_bins)<=1,
+      "statuses":dict(counts),"all_81_documented":completed,\n      "all_81_physically_valid_under_declared_background_gates":bool(completed and counts["PHYSICAL_VALID"]==81),"binary_sha256_consistent_valid_cases":len(native_bins)<=1,
       "unexpected_directories":unexpected,"cases":cases,"physical_scan_pass":False,"MCMC":False,"automatic_follow_on":False}
 
 def main():
