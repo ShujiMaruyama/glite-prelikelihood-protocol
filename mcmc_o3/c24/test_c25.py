@@ -82,3 +82,33 @@ def test_complete_synthetic_background_still_valid_not_81(tmp_path):
     assert a["status"]=="PHYSICAL_VALID"
     assert full["all_81_documented"] is False
     assert full["all_81_physically_valid_under_declared_background_gates"] is False
+
+
+def _rebuild_receipt_hash(tmp_path,events):
+    from hashlib import sha256
+    log=tmp_path/"rims_000"/"native_compute.log"
+    log.write_text(chr(10).join(json.dumps(x,sort_keys=True) for x in events)+chr(10))
+    receipt=tmp_path/"rims_000"/"receipt.json"
+    payload=json.loads(receipt.read_text())
+    payload["log_sha256"]=sha256(log.read_bytes()).hexdigest()
+    receipt.write_text(json.dumps(payload))
+
+def test_falsified_compute_end_success_flag_is_detected(tmp_path):
+    r,a,e=exercise(tmp_path,"ok")
+    for x in e:
+        if x["event"]=="native_compute_end":
+            x["success"]=False
+            break
+    _rebuild_receipt_hash(tmp_path,e)
+    reviewed=audit.audit(frozen.build_manifest(),tmp_path)["cases"][0]
+    assert reviewed["status"]=="PROVENANCE_GATE_FAIL"
+    assert "native_compute_end_without_success_flag" in reviewed["issues"]
+
+def test_duplicate_background_extract_exception_is_detected(tmp_path):
+    r,a,e=exercise(tmp_path,"extract")
+    original=next(x for x in e if x["event"]=="native_extract_exception")
+    e.append(dict(original))
+    _rebuild_receipt_hash(tmp_path,e)
+    reviewed=audit.audit(frozen.build_manifest(),tmp_path)["cases"][0]
+    assert reviewed["status"]=="PROVENANCE_GATE_FAIL"
+    assert "duplicate_background_extract_exception" in reviewed["issues"]
