@@ -1,0 +1,151 @@
+name: RIMS c28 corrected background input smoke (manual only)
+on:
+  workflow_dispatch:
+    inputs:
+      run_mode:
+        description: "Static-only default; single-case runs one non-MCMC CLASS background"
+        required: true
+        type: choice
+        default: static-only
+        options:
+          - static-only
+          - single-case
+permissions:
+  contents: read
+concurrency:
+  group: rims-c28-${{ github.ref }}-${{ inputs.run_mode }}
+  cancel-in-progress: false
+env:
+  OMP_NUM_THREADS: 1
+  OPENBLAS_NUM_THREADS: 1
+  MKL_NUM_THREADS: 1
+  OPENMPI_MCA_btl_vader_single_copy_mechanism: none
+  PYTHONUNBUFFERED: 1
+
+jobs:
+  static-check:
+    if: github.ref_name == 'rims-c28-background-input-fix-20261022'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install small offline test environment
+        run: python -m pip install 'pytest>=8,<10' 'numpy==2.5.3'
+      - name: Verify frozen c23 design, execute native-free regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p c28_artifacts
+          python -m compileall -q mcmc_o3/c24
+          python mcmc_o3/c24/c23_freeze.py --output c28_artifacts/C23_FROZEN_81.json
+          python - <<'PY'
+          import json
+          x=json.load(open('c28_artifacts/C23_FROZEN_81.json'))
+          assert x['freeze_hash']=='0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0'
+          assert len(x['cases'])==81
+          print('EXACT C23 FROZEN 81 INPUT DESIGN: PASS, PHYSICAL RUN COUNT=0')
+          PY
+          python -m pytest -q mcmc_o3/c24/test_c24.py mcmc_o3/c24/test_c25.py mcmc_o3/c24/test_c26_occupancy_gate.py mcmc_o3/c24/test_c26_native_receipt_bridge.py mcmc_o3/c24/test_c27_history_integrity.py mcmc_o3/c24/test_c27_runner_integration.py mcmc_o3/c24/test_c28_background_input.py | tee c28_artifacts/static_pytest.txt
+          (cd c28_artifacts && sha256sum C23_FROZEN_81.json static_pytest.txt > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-c28-static-audit
+          path: c28_artifacts
+          retention-days: 30
+
+  single-native-background:
+    if: github.ref_name == 'rims-c28-background-input-fix-20261022' && inputs.run_mode == 'single-case'
+    needs: static-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify this is exactly one non-MCMC physical background
+        run: |
+          set -euo pipefail
+          test "${{ inputs.run_mode }}" = "single-case"
+          python mcmc_o3/c24/c23_freeze.py --output C23_FROZEN_81.json
+          grep -q 'INPUT_DESIGN_ONLY_NO_PHYSICAL_TRAJECTORIES' C23_FROZEN_81.json
+      - name: Pin and patch CLASS V18.29
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > rims_o3_patch/V18_23_TO_V18_29.patch
+          echo '6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74  rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff' | sha256sum -c -
+          echo 'c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc  rims_o3_patch/V18_23_TO_V18_29.patch' | sha256sum -c -
+          git clone https://github.com/lesgourg/class_public.git class_public
+          git -C class_public checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          (cd class_public && git apply ../rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff && git apply ../rims_o3_patch/V18_23_TO_V18_29.patch && git diff --check)
+      - name: Install pinned native CLASS runtime
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install 'cython<4' 'numpy==2.5.3' scipy
+          (cd class_public && python setup.py build)
+          python -m pip install -e ./class_public
+      - name: Execute exactly one frozen RIMS background (rims_000) after input fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p c28_results
+          cp C23_FROZEN_81.json c28_results/
+          python mcmc_o3/c24/c24_native_background.py --manifest C23_FROZEN_81.json --output c28_results/native \
+            --class-source class_public \
+            --base-patch rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff \
+            --delta-patch rims_o3_patch/V18_23_TO_V18_29.patch \
+            --one rims_000 2>&1 | tee c28_results/native_console.log
+      - name: Audit one physical attempt and preserve 80 unattempted statuses
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mcmc_o3/c24/c24_audit.py --manifest C23_FROZEN_81.json \
+            --receipts c28_results/native --out c28_results/c24_audit.json --one rims_000
+      - name: Independent early occupancy fidelity audit (c26)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mcmc_o3/c24/c26_native_receipt_bridge.py \
+            --manifest C23_FROZEN_81.json \
+            --native-receipt c28_results/native/rims_000/receipt.json \
+            --out c28_results/c26_occupancy_audit.json
+
+      - name: Independently re-audit full source history and c26 earliest-state decision
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mcmc_o3/c24/c27_history_integrity.py \
+            --manifest C23_FROZEN_81.json \
+            --native-receipt c28_results/native/rims_000/receipt.json \
+            --native-history c28_results/native/rims_000/c27_full_history_z_phi.json \
+            --out c28_results/c27_full_history_audit.json
+
+      - name: Write explicit audit record even if native background fails
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          if test -f C23_FROZEN_81.json && test -f c28_results/native/rims_000/receipt.json && ! test -f c28_results/c24_audit.json; then
+            python mcmc_o3/c24/c24_audit.py \
+              --manifest C23_FROZEN_81.json \
+              --receipts c28_results/native --out c28_results/failure_aware_audit.json \
+              --one rims_000
+            audit_rc=$?
+            printf 'Failure-aware audit exit code (2 = non-PHYSICAL_VALID): %s\\n' "$audit_rc" > c28_results/failure_aware_audit_status.txt
+          fi
+
+      - name: Package complete evidence, including failure paths
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p c28_results
+          cp C23_FROZEN_81.json c28_results/ 2>/dev/null
+          (cd c28_results && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-c28-single-native-class-background
+          path: c28_results
+          retention-days: 30
