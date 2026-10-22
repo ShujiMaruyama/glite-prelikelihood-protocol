@@ -48,3 +48,15 @@ def test_frozen_81_inputs_remain_unchanged():
     m=c23_freeze.build_manifest()
     assert m["freeze_hash"]=="0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0"
     assert len(m["cases"])==81
+
+
+def test_binary_hash_targets_class_implementation_module_not_python_wrapper():
+    import hashlib
+    class FakeClass:
+        pass
+    class Wrapper:
+        Class=FakeClass
+        __file__="/fake/irrelevant/python/wrapper/__init__.py"
+    target=native.class_compiled_module_path(Wrapper)
+    assert target.exists() and target.name==Path(__file__).name
+    assert hashlib.sha256(target.read_bytes()).hexdigest()
