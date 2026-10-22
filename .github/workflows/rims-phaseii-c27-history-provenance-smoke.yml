@@ -45,7 +45,7 @@ jobs:
           assert len(x['cases'])==81
           print('EXACT C23 FROZEN 81 INPUT DESIGN: PASS, PHYSICAL RUN COUNT=0')
           PY
-          python -m pytest -q mcmc_o3/c24/test_c24.py mcmc_o3/c24/test_c25.py mcmc_o3/c24/test_c26_occupancy_gate.py mcmc_o3/c24/test_c26_native_receipt_bridge.py mcmc_o3/c24/test_c27_history_integrity.py | tee c27_artifacts/static_pytest.txt
+          python -m pytest -q mcmc_o3/c24/test_c24.py mcmc_o3/c24/test_c25.py mcmc_o3/c24/test_c26_occupancy_gate.py mcmc_o3/c24/test_c26_native_receipt_bridge.py mcmc_o3/c24/test_c27_history_integrity.py mcmc_o3/c24/test_c27_runner_integration.py | tee c27_artifacts/static_pytest.txt
           (cd c27_artifacts && sha256sum C23_FROZEN_81.json static_pytest.txt > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         if: always()
