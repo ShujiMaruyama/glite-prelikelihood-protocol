@@ -1,0 +1,62 @@
+{
+  "schema": "rims-phaseii-c25-static-failure-receipt-and-prediction-frontier-v1",
+  "date": "2026-10-22",
+  "upstream_branch": "rims-c24-native-execution-source-20261021",
+  "upstream_head": "e0eb0cfc11390b9de9579868126eeba8de62cd33",
+  "current_stage": "registered_manual_static_gate_not_dispatched",
+  "actual_GitHub_Actions_runs_as_last_verified": 0,
+  "source_committed_to_GitHub": true,
+  "main_and_branch_workflow_blob_sha": "8a111c722a54fbb6b4e4bb1b22d74706d1c9274c",
+  "safety": {
+    "trigger": "workflow_dispatch",
+    "default": "static-only",
+    "separate_mode": "single-case",
+    "all81_mode": false,
+    "MCMC": false,
+    "automatic_follow_on": false,
+    "automatic_long_run": false
+  },
+  "new_c25_tests_committed_not_executed": 10,
+  "inherited_c24_tests_committed_not_executed_on_c25": 11,
+  "prior_c23_c24_local_zip_tests_passed": 27,
+  "native_RIMS_class_parity_real_runs": 0,
+  "physical_RIMS_81_background_runs": 0,
+  "physical_predication_frontier": "only output for PHYSICAL_VALID after real 0<=z<=3 CLASS receipt",
+  "registered_formula": {
+    "W": "alpha_U*(1-u^2)",
+    "u": "sqrt(s)",
+    "sagitta": "alpha_U*(sqrt(s_max)-sqrt(s_min))^2/4",
+    "ideal_three_node_50pct_power_5sigma_rel_F_noise_ceiling": "2*sagitta/(5*sqrt(3/2)*W_center)",
+    "weak_V7_benchmark_threshold_reproduction": 8.490757080215627e-9,
+    "survey_or_observational_forecast": false
+  },
+  "auditor_upgrade": [
+    "Class constructor/set failures are setup events not compute attempts",
+    "native compute start matched to exactly one terminal event",
+    "background extraction exceptions separated from compute failures",
+    "zero native compute solver failure accepted only when properly setup logged",
+    "reject forged success flag, duplicated extraction and event tampering"
+  ],
+  "deliverable": {
+    "filename": "RIMS_C25_HARDENED_CHECKPOINT_20261022.zip",
+    "sha256": "43c7d6873446a3cf91dd2e9e293ecabd9b24b6c6fdbadbd30c39f26c150deeb8",
+    "contains": "unmodified c24 original ZIP plus GitHub source manifest, README and SHA256; c25 executable sources are on GitHub, not mirrored in this ZIP",
+    "parent_c24_zip_sha256": "4d8330705493b16b9812042450475e0241e3abdf35c728c7879313a238bf2ea9"
+  },
+  "frozen_grid_hash": "0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0",
+  "hard_gates": {
+    "native_one_case": "PENDING",
+    "c18_full_parity": "PENDING",
+    "physical81": "PENDING",
+    "independent_second_code": "PENDING",
+    "production_GetDist_Rminus1_lt": 0.01,
+    "production_min_headline_ESS_ge": 1000
+  },
+  "forbidden_claims": {
+    "production_posterior": true,
+    "Bayes_factor": true,
+    "model_preference": true,
+    "LambdaCDM_competitiveness": true,
+    "world_first_novelty": true
+  }
+}
