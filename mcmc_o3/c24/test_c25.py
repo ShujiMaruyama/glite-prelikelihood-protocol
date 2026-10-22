@@ -112,3 +112,19 @@ def test_duplicate_background_extract_exception_is_detected(tmp_path):
     reviewed=audit.audit(frozen.build_manifest(),tmp_path)["cases"][0]
     assert reviewed["status"]=="PROVENANCE_GATE_FAIL"
     assert "duplicate_background_extract_exception" in reviewed["issues"]
+
+
+def test_ideal_design_ceiling_is_computed_only_for_physical_valid(tmp_path):
+    import math
+    r,a,e=exercise(tmp_path,"ok")
+    assert a["status"]=="PHYSICAL_VALID"
+    cap=a["idealized_three_node_expected_5sigma_50pct_power_relative_F_error_ceiling"]
+    normalized=a["fractional_W_sagitta"]
+    assert cap>0 and math.isfinite(cap)
+    assert math.isclose(cap,2*normalized/(5*math.sqrt(1.5)),rel_tol=1e-12)
+    assert a["idealized_design_only"] is True
+
+def test_ideal_design_ceiling_not_released_for_failed_native_case(tmp_path):
+    r,a,e=exercise(tmp_path,"extract")
+    assert a["status"]=="SOLVER_FAILED"
+    assert "idealized_three_node_expected_5sigma_50pct_power_relative_F_error_ceiling" not in a
