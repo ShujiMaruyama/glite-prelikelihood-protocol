@@ -1,0 +1,54 @@
+{
+  "schema": "RIMS_C27_RAW_HISTORY_SOURCE_BOUND_RELEASE_V1",
+  "date": "2026-10-22",
+  "stage": "local_synthetic_replay_and_registered_manual_static_preflight_only",
+  "lineage": {
+    "c26_branch_head": "9324f36490866a6800b9b4367d53cb5ac7a89f0b",
+    "frozen_81_grid_sha256": "0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0",
+    "original_c26_zip_sha256": "80bde37ca1fb791fe84260d9ad1ad6bc6f3926e1fb73f2b4d6d6cb5c67c92253"
+  },
+  "source": {
+    "committed_to_GitHub": true,
+    "raw_native_history_emitted": "full_unfiltered_final_CLASS_z_phi_values",
+    "c27_git_history_verifier_blob": "03221b02ca6c5ef0c83d8494b2cad001a7d64e78",
+    "c27_git_unit_tests_blob": "be65f09b78b17fa9f62eff1dd6c94d8689dc1bb5",
+    "c27_git_runner_integration_tests_blob": "592da37c32ad9f03001bcb3593a3f385c96960e8",
+    "original_history_receipt_sha256_required": true,
+    "full_native_history_length_matches_receipt": true,
+    "unfiltered_native_history_recomputed_against_earliest_report": true
+  },
+  "verification": {
+    "archived_c23_c24_c26_local_tests_pass": 46,
+    "c27_new_local_unit_tests_pass": 14,
+    "c27_fake_native_runner_integration_local_tests_pass": 2,
+    "total_local_pass": 62,
+    "real_CLASS_runs": 0,
+    "c27_GitHub_Actions_runs_as_last_checked": 0,
+    "physical_81_run": 0,
+    "production_MCMC": 0,
+    "GitHub_workflow_static_registered": true,
+    "GitHub_workflow_default": "static-only",
+    "GitHub_workflow_single_case_requires_manual_choice": true,
+    "no_auto_followon": true,
+    "local_tested_archive_runner_exact_byte_match_with_GitHub_current_runner": false
+  },
+  "release": {
+    "filename": "RIMS_C27_SOURCE_BOUND_HISTORY_20261022.zip",
+    "sha256": "9ae407193a7b55c16eea05d51662381baa9406f1cf49d1173fb8761150bda574",
+    "contains_original_c26_zip_unchanged": true,
+    "internal_zip_crc_check": "PASS",
+    "contains_archival_local_test_files": true
+  },
+  "limits": {
+    "not_an_independent_class_solver": true,
+    "cryptographic_external_attestation": false,
+    "no_production_posterior": true,
+    "no_Bayes_factor": true,
+    "no_LCDM_model_preference": true,
+    "novelty_priority_unproved": true
+  },
+  "production_gate": {
+    "GetDist_Rminus1_strict_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000
+  }
+}
