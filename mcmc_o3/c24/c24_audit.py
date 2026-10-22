@@ -110,7 +110,8 @@ def audit(m,root):
     if len(native_bins)>1:completed=False
     return {"schema":"rims-c24-81-attempt-integrity-v1","source_freeze_hash":m["freeze_hash"],
       "native_provenance_level":"self-reported native execution receipts + GitHub runner log; not cryptographically independently attested",
-      "statuses":dict(counts),"all_81_documented":completed,\n      "all_81_physically_valid_under_declared_background_gates":bool(completed and counts["PHYSICAL_VALID"]==81),"binary_sha256_consistent_valid_cases":len(native_bins)<=1,
+      "statuses":dict(counts),"all_81_documented":completed,
+      "all_81_physically_valid_under_declared_background_gates":bool(completed and counts["PHYSICAL_VALID"]==81),"binary_sha256_consistent_valid_cases":len(native_bins)<=1,
       "unexpected_directories":unexpected,"cases":cases,"physical_scan_pass":False,"MCMC":False,"automatic_follow_on":False}
 
 def main():
