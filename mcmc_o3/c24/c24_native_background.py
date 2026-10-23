@@ -55,7 +55,7 @@ def run_case(classy,case,manifest,out):
         "source_freeze_hash":manifest["freeze_hash"],
         "Class_upstream_commit":manifest["Class_upstream_commit"],
         "RIMS_patch_sha256":manifest["RIMS_patch_sha256"],
-        "code_version":"c29_native_background_v5","MCMC":False,
+        "code_version":"c30_native_background_v6","MCMC":False,
         "synthetic_fixture":False,"run_status":"solver_error",
         "native_compute_attempts":0,"normalization_iteration_success":False,
         "binary_path":str(binary),"binary_sha256":hashlib.sha256(binary.read_bytes()).hexdigest()}
@@ -122,11 +122,30 @@ def run_case(classy,case,manifest,out):
             receipt["normalization_iteration_success"]=True
             q=dict(args);q["rims_phi_ref"]=pref;q["rims_require_normalization"]="yes"
             bg=calculate(f,q,"final_background")
-            z=np.asarray(bg[field_key(bg,"z",("z",))],float)
-            phi=np.asarray(bg[field_key(bg,"phi_scf",("phi","scf"))],float)
-            mr=np.asarray(bg[field_key(bg,"rims_mratio",("rims","mratio"))],float)
-            m2=np.asarray(bg[field_key(bg,"rims_m2eff_over_H2",("rims","m2","h2"))],float)
-            if z.ndim!=1 or not(z.shape==phi.shape==mr.shape==m2.shape):raise RuntimeError("CLASS background array shape mismatch")
+            # c30: these are EXACT patched background_output_titles names,
+            # not guesses or alternative physics quantities.
+            receipt["native_background_keys"]=sorted(str(k) for k in bg)
+            event(f,"c30_native_output_schema",{"keys":receipt["native_background_keys"]})
+            for required in ("z","phi_scf","rims_mratio","rims_stab","rims_meff2","H [1/Mpc]"):
+                if required not in bg:
+                    raise RuntimeError("Missing exact patched RIMS CLASS column: "+required)
+            z=np.asarray(bg["z"],float)
+            phi=np.asarray(bg["phi_scf"],float)
+            mr=np.asarray(bg["rims_mratio"],float)
+            m2=np.asarray(bg["rims_stab"],float)
+            meff2=np.asarray(bg["rims_meff2"],float)
+            hubble=np.asarray(bg["H [1/Mpc]"],float)
+            receipt["c30_mass_ratio_column"]="rims_stab"
+            if z.ndim!=1 or not(z.shape==phi.shape==mr.shape==m2.shape==meff2.shape==hubble.shape):
+                raise RuntimeError("Patched CLASS full background array shape mismatch")
+            if (not np.all(np.isfinite(m2))) or (not np.all(np.isfinite(meff2))) or (not np.all(np.isfinite(hubble))) or np.any(hubble<=0):
+                raise RuntimeError("RIMS mass/H columns contain nonfinite values or H<=0")
+            independent_ratio=meff2/(hubble*hubble)
+            abs_delta=np.abs(independent_ratio-m2)
+            receipt["c30_max_mass_ratio_reconstruction_error"]=float(np.max(abs_delta))
+            if not np.allclose(m2,independent_ratio,rtol=5e-8,atol=1e-10):
+                raise RuntimeError("RIMS stability ratio inconsistent with m_eff^2 / H^2: maximum absolute difference "+
+                                   str(receipt["c30_max_mass_ratio_reconstruction_error"]))
             # c27: freeze the full, UNFILTERED final native CLASS z/phi vectors.
             # This raw history is independently compared with the c26
             # earliest-epoch statement; neither data file is a second solver.
