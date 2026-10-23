@@ -166,7 +166,7 @@ def run_case(classy,case,manifest,out):
                     "left":source_native_row(original_lo),
                     "right":source_native_row(original_hi),
                     "gap":float(z[original_hi]-z[original_lo]),
-                    "exact_native_z3_recorded":False
+                    "exact_native_z3_recorded":bool(z[original_hi]==3.0)
                 }
                 bracket_data=json.dumps(receipt["c32_native_z3_bracket"],
                                         sort_keys=True,separators=(",",":"),allow_nan=False)
