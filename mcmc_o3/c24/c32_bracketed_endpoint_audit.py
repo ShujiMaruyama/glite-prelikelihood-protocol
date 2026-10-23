@@ -18,6 +18,7 @@ M2_MIN=-1.0e-10
 RATIO_RTOL=5e-8
 RATIO_ATOL=1e-10
 STATUS="NATIVE_GRID_BRACKETED_SAMPLED_PASS"
+EXACT_STATUS="NATIVE_Z3_EXACT_MESH_SAMPLED_PASS"
 
 def safe(x):
     return type(x) in (int,float) and math.isfinite(float(x))
@@ -59,8 +60,14 @@ def bracket_audit(m,root,case_id="rims_000"):
     b=receipt.get("c32_native_z3_bracket")
     if not isinstance(b,dict) or b.get("schema")!="rims-c32-native-z3-bracket-v1":
         raise ValueError("Missing native full-mass z3 source bracket")
-    if b.get("case_sha256")!=case["input_sha256"] or b.get("exact_native_z3_recorded") is not False:
-        raise ValueError("Bracket identity or exact/native interpolation label changed")
+    if b.get("case_sha256")!=case["input_sha256"] or type(b.get("exact_native_z3_recorded")) is not bool:
+        raise ValueError("Bracket identity or native/exact label missing")
+    exact_mesh=b["exact_native_z3_recorded"]
+    if exact_mesh and oldcase["status"]!="PHYSICAL_VALID":
+        raise ValueError("Native exact z3 mesh cannot override a distinct legacy veto")
+    if not exact_mesh and (oldcase["status"]!="PHYSICAL_REJECT" or
+                           oldcase["issues"]!=["z_0to3_coverage_failed"]):
+        raise ValueError("Claimed bracket must explain original exact-grid-only rejection")
     if b.get("source")!="raw_final_Class.get_background_before_z_filter":
         raise ValueError("Untrusted source for bracket")
     frozen_bracket_hash=hashlib.sha256(json.dumps(
@@ -107,8 +114,10 @@ def bracket_audit(m,root,case_id="rims_000"):
             raise ValueError("Native bracket contains unstable mass squared")
     lo=b["left"];hi=b["right"]
     z1=float(lo["z"]);z2=float(hi["z"])
-    if not(z1<3<z2 and 0<z2-z1<=GAP_MAX):
+    if not (z1<3<=z2 and 0<z2-z1<=GAP_MAX):
         raise ValueError("Native z3 bracket missing or too coarse")
+    if exact_mesh!=(z2==3.0):
+        raise ValueError("Native exact z3 flag contradicts source coordinate")
     if not close(b.get("gap"),z2-z1,atol=1e-12,rtol=0):
         raise ValueError("Native gap metadata altered")
     # These must be the nearest two source points, not cherry-picked points.
@@ -139,14 +148,15 @@ def bracket_audit(m,root,case_id="rims_000"):
          "original_legacy_audit_issues":oldcase["issues"],
          "c26_initial_occupancy_gate":c26["gate"],
          "c27_full_history_integrity_gate":source["c26_gate"],
-         "c32_status":STATUS,
+         "c32_status":EXACT_STATUS if exact_mesh else STATUS,
          "native_z_bracket":[z1,z2],"native_gap":z2-z1,
          "native_m2_H2_bracket":[lo["rims_stab"],hi["rims_stab"]],
          "sampled_z0_to3_native_m2_H2_min":min(row["m2_over_H2"] for row in sample),
-         "z3_linear_interpolation_diagnostic_only":{
+         "z3_boundary_estimate":{
              "m2_over_H2":m3,"phi":phi3,
              "s":logistic(2*s2*(phi3-pt)),
-             "is_exact_class_z3":False,
+             "method":"exact_native_mesh_sample" if exact_mesh else "linear_bracket_interpolation_diagnostic",
+             "is_exact_native_mesh_sample":exact_mesh,
              "not_continuum_stability_proof":True},
          "no_second_solver_or_observational_inference":True,
          "other_80_cases_unattempted":True,"production_posterior":False}
@@ -164,5 +174,5 @@ def main():
     if a.out.exists():raise RuntimeError("Do not overwrite c32 audit")
     a.out.parent.mkdir(parents=True,exist_ok=True)
     a.out.write_text(json.dumps(d,indent=2,sort_keys=True,allow_nan=False)+"\n")
-    print(STATUS,"original_legacy_status",d["original_legacy_audit_status"])
+    print(d["c32_status"],"original_legacy_status",d["original_legacy_audit_status"])
 if __name__=="__main__":main()
