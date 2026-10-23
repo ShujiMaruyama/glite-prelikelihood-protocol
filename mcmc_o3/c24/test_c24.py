@@ -19,7 +19,7 @@ class FakeClass:
         if self.mode=="unstable":m2[2]=-1e-5
         if self.mode=="short_z":z[-1]=2.9
         if self.mode=="nan_z":z[-1]=np.nan
-        return {"z":z,"phi_scf":phi,"rims_mratio":np.ones(4),"rims_m2eff_over_H2":m2}
+        return {"z":z,"phi_scf":phi,"rims_mratio":np.ones(4),"rims_stab":m2,"rims_meff2":m2,"H [1/Mpc]":np.ones_like(m2)}
     def empty(self):pass
 class FakeModule:
     Class=FakeClass
