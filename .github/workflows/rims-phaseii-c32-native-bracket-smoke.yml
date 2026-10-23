@@ -148,10 +148,13 @@ jobs:
           python - <<'PY'
           import json
           d=json.load(open("c32_results/c32_native_bracket_audit.json"))
-          assert d["c32_status"]=="NATIVE_GRID_BRACKETED_SAMPLED_PASS"
-          assert not d["z3_linear_interpolation_diagnostic_only"]["is_exact_class_z3"]
+          status=d["c32_status"]
+          assert status in ("NATIVE_GRID_BRACKETED_SAMPLED_PASS","NATIVE_Z3_EXACT_MESH_SAMPLED_PASS")
+          v=d["z3_boundary_estimate"]
+          assert v["not_continuum_stability_proof"] is True
+          assert v["is_exact_native_mesh_sample"]==(status=="NATIVE_Z3_EXACT_MESH_SAMPLED_PASS")
           assert d["no_second_solver_or_observational_inference"]
-          print("SAMPLED_ONLY_C32_BRACKET_PASS; NO CONTINUUM OR OBSERVATIONAL CLAIM")
+          print("SAMPLED_ONLY_C32_BOUNDARY_CHECK",status,"NO CONTINUUM OR OBSERVATIONAL CLAIM")
           PY
       - name: Save failure-aware 81-status evidence (reporting is not physics PASS)
         if: always()
