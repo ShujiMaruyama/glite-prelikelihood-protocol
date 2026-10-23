@@ -43,7 +43,7 @@ def simulate(tmp_path,mode):
 def test_real_patch_exact_names_have_full_native_semantics(tmp_path):
     m,r,a=simulate(tmp_path,"valid")
     assert r["run_status"]=="solver_completed"
-    assert r["code_version"]=="c30_native_background_v6"
+    assert r["code_version"]=="c32_native_background_v7"
     assert r["c30_mass_ratio_column"]=="rims_stab"
     assert r["c30_max_mass_ratio_reconstruction_error"]==0.
     assert "rims_stab" in r["native_background_keys"]
