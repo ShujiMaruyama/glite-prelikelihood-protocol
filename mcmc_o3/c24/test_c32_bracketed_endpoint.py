@@ -16,6 +16,8 @@ class MockClass:
         z=[0.,1.,2.9995860999538064,3.0028107653487153,1100.,3300.]
         if self.mode=="coarse":
             z[3]=3.2
+        if self.mode=="exact":
+            z[3]=3.0
         mass=[.02]*len(z)
         if self.mode=="right_negative":
             mass[3]=-.03
@@ -47,8 +49,8 @@ def test_c32_positive_bracket_sample_pass_with_strict_legacy_rejection(tmp_path)
     q=bracket_audit(m,tmp_path)
     assert q["c32_status"]==STATUS
     assert q["original_legacy_audit_status"]=="PHYSICAL_REJECT"
-    assert q["z3_linear_interpolation_diagnostic_only"]["is_exact_class_z3"] is False
-    assert q["z3_linear_interpolation_diagnostic_only"]["not_continuum_stability_proof"] is True
+    assert q["z3_boundary_estimate"]["is_exact_native_mesh_sample"] is False
+    assert q["z3_boundary_estimate"]["not_continuum_stability_proof"] is True
     assert q["other_80_cases_unattempted"] is True
 
 def test_c32_right_mass_negative_is_a_real_veto(tmp_path):
@@ -115,3 +117,13 @@ def test_c32_never_changes_fixed_81_input_grid(tmp_path):
     assert r["native_compute_attempts"]==2
     q=bracket_audit(m,tmp_path)
     assert "PHYSICAL_VALID" not in q["c32_status"]
+
+def test_c32_exact_native_z3_is_not_mislabelled_interpolation(tmp_path):
+    m,r,p=produce(tmp_path,"exact")
+    old=c24_audit.audit(m,tmp_path)
+    assert old["cases"][0]["status"]=="PHYSICAL_VALID"
+    q=bracket_audit(m,tmp_path)
+    assert q["c32_status"]=="NATIVE_Z3_EXACT_MESH_SAMPLED_PASS"
+    assert q["z3_boundary_estimate"]["is_exact_native_mesh_sample"] is True
+    assert q["z3_boundary_estimate"]["method"]=="exact_native_mesh_sample"
+    assert q["z3_boundary_estimate"]["not_continuum_stability_proof"] is True
