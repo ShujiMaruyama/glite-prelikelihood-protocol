@@ -55,7 +55,7 @@ def run_case(classy,case,manifest,out):
         "source_freeze_hash":manifest["freeze_hash"],
         "Class_upstream_commit":manifest["Class_upstream_commit"],
         "RIMS_patch_sha256":manifest["RIMS_patch_sha256"],
-        "code_version":"c30_native_background_v6","MCMC":False,
+        "code_version":"c32_native_background_v7","MCMC":False,
         "synthetic_fixture":False,"run_status":"solver_error",
         "native_compute_attempts":0,"normalization_iteration_success":False,
         "binary_path":str(binary),"binary_sha256":hashlib.sha256(binary.read_bytes()).hexdigest()}
@@ -138,6 +138,45 @@ def run_case(classy,case,manifest,out):
             receipt["c30_mass_ratio_column"]="rims_stab"
             if z.ndim!=1 or not(z.shape==phi.shape==mr.shape==m2.shape==meff2.shape==hubble.shape):
                 raise RuntimeError("Patched CLASS full background array shape mismatch")
+
+            # Preserve the two original, adjacent FULL CLASS samples around
+            # z=3. No resampling and no claim of an exact z=3 CLASS sample.
+            # The c27 full-history hash independently binds z and phi rows.
+            original_sorted=np.argsort(z)
+            zs=z[original_sorted]
+            ix=int(np.searchsorted(zs,3.0,side="left"))
+            if ix>0 and ix<len(zs):
+                original_lo=int(original_sorted[ix-1])
+                original_hi=int(original_sorted[ix])
+                if not (z[original_lo]<3<=z[original_hi]):
+                    raise RuntimeError("Native z=3 bracket source ordering invalid")
+                def source_native_row(index):
+                    return {"row_index":index,"z":float(z[index]),
+                            "phi":float(phi[index]),
+                            "s":float(1/(1+np.exp(np.clip(
+                                -2*case["alpha_U"]*(phi[index]-case["phi_t"]),-700,700)))),
+                            "rims_mratio":float(mr[index]),
+                            "rims_stab":float(m2[index]),
+                            "rims_meff2":float(meff2[index]),
+                            "H_Mpc_inverse":float(hubble[index])}
+                receipt["c32_native_z3_bracket"]={
+                    "schema":"rims-c32-native-z3-bracket-v1",
+                    "source":"raw_final_Class.get_background_before_z_filter",
+                    "case_sha256":case["input_sha256"],
+                    "left":source_native_row(original_lo),
+                    "right":source_native_row(original_hi),
+                    "gap":float(z[original_hi]-z[original_lo]),
+                    "exact_native_z3_recorded":False
+                }
+                event(f,"c32_native_z3_bracket",{
+                    "left_row_index":original_lo,"right_row_index":original_hi,
+                    "gap":receipt["c32_native_z3_bracket"]["gap"],
+                    "native_right_stability":float(m2[original_hi])})
+            else:
+                receipt["c32_native_z3_bracket"]=None
+                event(f,"c32_native_z3_bracket_missing",{"z_max":float(np.max(z)),
+                      "z_min":float(np.min(z))})
+
             # Preserve c24's fail-closed, in-domain nonfinite row count even
             # if the full-history consistency check fails before z-window export.
             if not np.all(np.isfinite(z)):
