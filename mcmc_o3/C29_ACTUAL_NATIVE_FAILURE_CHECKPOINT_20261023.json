@@ -1,0 +1,53 @@
+{
+  "schema": "rims-c29-20261023-single-native-background-parser-repair-v1",
+  "original_failed_run": {
+    "id": 39887833682,
+    "number": 2,
+    "branch": "rims-c28-background-input-fix-20261022",
+    "case": "rims_000",
+    "status": "failure",
+    "original_artifact_id": 12473741252,
+    "original_artifact_sha256": "132ce9a48ea70cf919fdd61c65abe5609b0110566a13d5be9a85412be99f404b",
+    "frozen_81_sha256": "0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0",
+    "native_compute_attempts": 4,
+    "successful_native_normalizations": 3,
+    "normalization_mass_ratio": [
+      1.0020129165561753,
+      1.0000006868179911,
+      1.0000000002346996
+    ],
+    "normalization_iteration_success": true,
+    "final_background": "SOLVER_FAILED",
+    "failure_class": "CosmoSevereError",
+    "failure_text": "Class did not read input parameter(s): ic",
+    "evidence_audit_statuses": {
+      "SOLVER_FAILED": 1,
+      "NO_RECEIPT": 80
+    }
+  },
+  "c29_fix": {
+    "native_runner_code_version": "c29_native_background_v5",
+    "remove_perturbation_only_ic_when_output_empty": true,
+    "retain_same_frozen_physical_grid": true,
+    "retain_compiled_CLASS_source_and_patches": true,
+    "new_regression_tests_committed": 4,
+    "static_suite_target": 64,
+    "static_suite_verified": false,
+    "corrected_real_CLASS_run_verified": false,
+    "manual_only_workflow": ".github/workflows/rims-phaseii-c29-background-only-ic-smoke.yml",
+    "default_mode": "static-only",
+    "optional_mode": "single-case",
+    "automatic_follow_on": false,
+    "full_81_batch": false,
+    "MCMC": false
+  },
+  "boundaries": {
+    "physical_stability_unverified": true,
+    "all_81_physical_runs": 0,
+    "production_posterior": false,
+    "Bayes_factor": false,
+    "model_preference": false,
+    "GetDist_Rminus1_strict_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000
+  }
+}
