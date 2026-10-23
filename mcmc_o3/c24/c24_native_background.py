@@ -138,6 +138,8 @@ def run_case(classy,case,manifest,out):
             receipt["c30_mass_ratio_column"]="rims_stab"
             if z.ndim!=1 or not(z.shape==phi.shape==mr.shape==m2.shape==meff2.shape==hubble.shape):
                 raise RuntimeError("Patched CLASS full background array shape mismatch")
+            if not np.all(np.isfinite(z)):
+                raise RuntimeError("nonfinite CLASS native redshift coordinate; cannot identify z3 source bracket")
 
             # Preserve the two original, adjacent FULL CLASS samples around
             # z=3. No resampling and no claim of an exact z=3 CLASS sample.
