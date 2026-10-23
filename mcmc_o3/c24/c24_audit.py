@@ -16,7 +16,7 @@ def audit_case(case,m,folder):
     frozen={"id":case["id"],"case_sha256":case["input_sha256"],
         "source_freeze_hash":m["freeze_hash"],"Class_upstream_commit":m["Class_upstream_commit"],
         "RIMS_patch_sha256":m["RIMS_patch_sha256"],"schema":"rims-c23-native-background-attempt-v1",
-        "MCMC":False,"synthetic_fixture":False,"code_version":"c29_native_background_v5"}
+        "MCMC":False,"synthetic_fixture":False,"code_version":"c30_native_background_v6"}
     for k,v in frozen.items():
         if r.get(k)!=v:issues.append("bad_"+k)
     n=r.get("native_compute_attempts")
@@ -79,6 +79,16 @@ def audit_case(case,m,folder):
         if not r.get("failure_class"):return {"id":case["id"],"status":"PROVENANCE_GATE_FAIL","issues":["failure_reason_missing"]}
         return {"id":case["id"],"status":"SOLVER_FAILED","issues":[],"failure":r.get("failure_message")}
     b=r.get("background");reject=[]
+    mandatory_columns=("z","phi_scf","rims_mratio","rims_stab","rims_meff2","H [1/Mpc]")
+    present=r.get("native_background_keys")
+    if (not isinstance(present,list) or
+        not all(field in present for field in mandatory_columns) or
+        r.get("c30_mass_ratio_column")!="rims_stab" or
+        not finite(r.get("c30_max_mass_ratio_reconstruction_error"))):
+        reject.append("missing_c30_native_column_provenance")
+    elif r["c30_max_mass_ratio_reconstruction_error"]<0:
+        reject.append("invalid_stability_ratio_reconstruction_error")
+
     if not isinstance(b,list) or len(b)<2:return {"id":case["id"],"status":"PHYSICAL_REJECT","issues":["missing_background"]}
     for i,row in enumerate(b):
         if not isinstance(row,dict) or not all(finite(row.get(k)) for k in ("z","s","m2_over_H2","norm_err")):
