@@ -63,6 +63,24 @@ def bracket_audit(m,root,case_id="rims_000"):
         raise ValueError("Bracket identity or exact/native interpolation label changed")
     if b.get("source")!="raw_final_Class.get_background_before_z_filter":
         raise ValueError("Untrusted source for bracket")
+    frozen_bracket_hash=hashlib.sha256(json.dumps(
+        b,sort_keys=True,separators=(",",":"),allow_nan=False).encode()).hexdigest()
+    if receipt.get("c32_native_z3_bracket_sha256")!=frozen_bracket_hash:
+        raise ValueError("Canonical raw native bracket digest differs from receipt")
+    log=(folder/"native_compute.log").read_bytes()
+    if hashlib.sha256(log).hexdigest()!=receipt.get("log_sha256"):
+        raise ValueError("Native event log hash mismatch")
+    events=[json.loads(line) for line in log.splitlines()]
+    bracket_events=[e for e in events if e.get("event")=="c32_native_z3_bracket"]
+    if len(bracket_events)!=1:
+        raise ValueError("Native bracket must have exactly one event")
+    e=bracket_events[0]
+    if e.get("source_bracket_sha256")!=frozen_bracket_hash:
+        raise ValueError("Original native event disagrees with bracketed physics data")
+    if e.get("left_row_index")!=b["left"]["row_index"] or e.get("right_row_index")!=b["right"]["row_index"]:
+        raise ValueError("Event's physical native row indices differ from receipt")
+    if not safe(e.get("gap")) or not close(e["gap"],b["gap"],rtol=0,atol=1e-12):
+        raise ValueError("Event's native z bracket gap differs from receipt")
     z_all=history["z"];phi_all=history["phi"]
     if len(z_all)!=receipt["native_z_total_rows"]:
         raise ValueError("History length mismatch")
