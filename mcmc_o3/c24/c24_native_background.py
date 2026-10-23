@@ -22,7 +22,7 @@ def base_args(case):
     return {"H0":b["H0"],"omega_b":b["omega_b"],"omega_cdm":omdm*frac,
         "omega_idm":omdm*(1-frac),"Omega_scf":case["omega_phi0"],
         "N_ur":b["N_ur"],"N_ncdm":0,"YHe":"BBN","tau_reio":b["tau_reio"],
-        "gauge":"synchronous","ic":"ad","scf_parameters":case["scf_parameters"],
+        "gauge":"synchronous","scf_parameters":case["scf_parameters"],
         "attractor_ic_scf":"no","scf_tuning_index":0,
         "recombination":"HYREC","reio_parametrization":"reio_camb",
         "idm_soundspeed":"no","rims_enabled":"yes",
@@ -55,7 +55,7 @@ def run_case(classy,case,manifest,out):
         "source_freeze_hash":manifest["freeze_hash"],
         "Class_upstream_commit":manifest["Class_upstream_commit"],
         "RIMS_patch_sha256":manifest["RIMS_patch_sha256"],
-        "code_version":"c28_native_background_v4","MCMC":False,
+        "code_version":"c29_native_background_v5","MCMC":False,
         "synthetic_fixture":False,"run_status":"solver_error",
         "native_compute_attempts":0,"normalization_iteration_success":False,
         "binary_path":str(binary),"binary_sha256":hashlib.sha256(binary.read_bytes()).hexdigest()}
@@ -63,6 +63,11 @@ def run_case(classy,case,manifest,out):
     def event(f,label,fields):
         f.write(json.dumps({"event":label,"mono_seconds":time.monotonic()-t0,**fields},sort_keys=True)+"\n");f.flush()
     def calculate(f,params,kind):
+        # A background-only CLASS call must never pass perturbation initial
+        # conditions. This is the diagnosed c28 Run #2 failure (ic unread).
+        if params.get("output") == "" and ("ic" in params or "non_linear" in params or "non linear" in params):
+            raise ValueError("Perturbation-only inputs prohibited for output='' background smoke")
+
         # Setup and extraction failures are NOT failed native compute() calls.
         # Every native compute() START has one SUCCESS or EXCEPTION event.
         try:
@@ -102,7 +107,7 @@ def run_case(classy,case,manifest,out):
         try:
             args=base_args(case);pref=4.11730971054
             for step in range(MAXITER):
-                q=dict(args);q["rims_phi_ref"]=pref;q["rims_require_normalization"]="no";q.pop("ic",None)
+                q=dict(args);q["rims_phi_ref"]=pref;q["rims_require_normalization"]="no"
                 bg=calculate(f,q,"normalization_background")
                 z=np.asarray(bg[field_key(bg,"z",("z",))],float)
                 if not np.all(np.isfinite(z)):raise RuntimeError("nonfinite native normalization redshift values")
