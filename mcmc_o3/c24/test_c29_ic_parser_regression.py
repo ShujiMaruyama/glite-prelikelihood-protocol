@@ -37,7 +37,7 @@ class ParserLikeClass:
         return {"z":[0.,1.,3.,1200.,3300.],
                 "phi_scf":[4.44]*5,
                 "rims_mratio":[ratio[min(phase,3)]]*5,
-                "rims_m2eff_over_H2":[1.]*5}
+                "rims_stab":[1.]*5,"rims_meff2":[1.]*5,"H [1/Mpc]":[1.]*5}
     def empty(self):pass
 
 class ParserLikeModule:
