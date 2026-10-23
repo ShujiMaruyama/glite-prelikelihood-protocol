@@ -138,8 +138,18 @@ def run_case(classy,case,manifest,out):
             receipt["c30_mass_ratio_column"]="rims_stab"
             if z.ndim!=1 or not(z.shape==phi.shape==mr.shape==m2.shape==meff2.shape==hubble.shape):
                 raise RuntimeError("Patched CLASS full background array shape mismatch")
-            if (not np.all(np.isfinite(m2))) or (not np.all(np.isfinite(meff2))) or (not np.all(np.isfinite(hubble))) or np.any(hubble<=0):
-                raise RuntimeError("RIMS mass/H columns contain nonfinite values or H<=0")
+            # Preserve c24's fail-closed, in-domain nonfinite row count even
+            # if the full-history consistency check fails before z-window export.
+            if not np.all(np.isfinite(z)):
+                raise RuntimeError("nonfinite CLASS redshift coordinate in full native history")
+            inside_precheck=(z>=0)&(z<=3)
+            finite_native=(np.isfinite(phi)&np.isfinite(mr)&np.isfinite(m2)&
+                           np.isfinite(meff2)&np.isfinite(hubble))
+            receipt["input_native_nonfinite_count"]=int(np.count_nonzero(
+                inside_precheck&~finite_native))
+            receipt["c30_native_full_nonfinite_rows"]=int(np.count_nonzero(~finite_native))
+            if receipt["c30_native_full_nonfinite_rows"] or np.any(hubble<=0):
+                raise RuntimeError("RIMS mass/H or matter columns contain nonfinite values or H<=0")
             independent_ratio=meff2/(hubble*hubble)
             abs_delta=np.abs(independent_ratio-m2)
             receipt["c30_max_mass_ratio_reconstruction_error"]=float(np.max(abs_delta))
