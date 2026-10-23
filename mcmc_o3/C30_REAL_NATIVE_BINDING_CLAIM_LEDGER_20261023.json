@@ -1,0 +1,70 @@
+{
+  "schema": "RIMS_C30_STABILITY_OUTPUT_BINDING_ROOT_CAUSE_V1",
+  "date": "2026-10-23",
+  "immutable_c29_run": {
+    "run_id": 39913415302,
+    "workflow_run_number": 2,
+    "branch": "rims-c29-background-only-ic-fix-20261023",
+    "conclusion": "failure",
+    "static_tests_passed": 64,
+    "compiled_native_class_success": true,
+    "real_native_compute_count": 4,
+    "successful_normalization_count": 3,
+    "final_background_native_compute_success": true,
+    "physical_stability_audit_pass": false,
+    "failure": "Missing/ambiguous patched RIMS CLASS background field rims_m2eff_over_H2: []",
+    "observed_native_statuses": {
+      "SOLVER_FAILED": 1,
+      "NO_RECEIPT": 80
+    },
+    "git_artifact_id": 12484166300,
+    "artifact_sha256": "513f8dc85fd8538831e007b5fca37a089a84fbc072adf822088bd7729fdbf502"
+  },
+  "frozen_patch_grounding": {
+    "source": "rims_o3_patch/base_parts/part02_03",
+    "original_exact_stability_column": "rims_stab",
+    "original_effective_mass_squared_column": "rims_meff2",
+    "original_H_column": "H [1/Mpc]",
+    "defining_relation": "rims_stab = rims_meff2 / H^2",
+    "source_defines": "rims_o3_patch/base_parts/part01",
+    "old_guess_is_not_real_native_column": true
+  },
+  "fix": {
+    "new_code_version": "c30_native_background_v6",
+    "require_exact_mass_and_H_columns": true,
+    "native_column_names_saved_in_receipt": true,
+    "crosscheck_mass_ratio_rtol": 5e-8,
+    "crosscheck_mass_ratio_atol": 1e-10,
+    "keep_all_full_native_rows_and_fail_nonfinite": true,
+    "original_c26_c27_audits_preserved": true,
+    "new_mock_unit_tests_committed": 6,
+    "historical_static_tests_target": 64,
+    "new_static_tests_target": 70,
+    "github_new_static_tests_executed": false,
+    "native_c30_physical_case_executed": false,
+    "physical_81_trajectory_scan_executed": false
+  },
+  "run_policy": {
+    "workflow": ".github/workflows/rims-phaseii-c30-stability-column-smoke.yml",
+    "manual_only": true,
+    "default_mode": "static-only",
+    "later_explicit_mode": "single-case",
+    "case_id": "rims_000",
+    "no_automatic_dispatch": true,
+    "no_81_batch": true,
+    "no_MCMC": true
+  },
+  "claim_boundary": {
+    "model_physically_proven": false,
+    "nonlinear_safe": false,
+    "c18_8_start_parity_verified": false,
+    "observational_preference": false,
+    "Bayes_factor": false,
+    "independent_second_solver": false,
+    "novelty_priority_verified": false
+  },
+  "production_gate": {
+    "GetDist_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000
+  }
+}
