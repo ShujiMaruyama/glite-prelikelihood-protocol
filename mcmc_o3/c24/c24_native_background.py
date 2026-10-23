@@ -168,10 +168,15 @@ def run_case(classy,case,manifest,out):
                     "gap":float(z[original_hi]-z[original_lo]),
                     "exact_native_z3_recorded":False
                 }
+                bracket_data=json.dumps(receipt["c32_native_z3_bracket"],
+                                        sort_keys=True,separators=(",",":"),allow_nan=False)
+                receipt["c32_native_z3_bracket_sha256"]=hashlib.sha256(
+                    bracket_data.encode("utf-8")).hexdigest()
                 event(f,"c32_native_z3_bracket",{
                     "left_row_index":original_lo,"right_row_index":original_hi,
                     "gap":receipt["c32_native_z3_bracket"]["gap"],
-                    "native_right_stability":float(m2[original_hi])})
+                    "native_right_stability":float(m2[original_hi]),
+                    "source_bracket_sha256":receipt["c32_native_z3_bracket_sha256"]})
             else:
                 receipt["c32_native_z3_bracket"]=None
                 event(f,"c32_native_z3_bracket_missing",{"z_max":float(np.max(z)),
