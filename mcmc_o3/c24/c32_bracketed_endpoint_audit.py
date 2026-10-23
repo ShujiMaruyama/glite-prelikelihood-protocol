@@ -131,12 +131,15 @@ def bracket_audit(m,root,case_id="rims_000"):
     sample=receipt.get("background")
     if not isinstance(sample,list) or len(sample)<2:
         raise ValueError("No native sampled grid")
-    if not close(sample[-1]["z"],z1,atol=1e-12,rtol=0):
-        raise ValueError("Lower bracket not last z<=3 sampled row")
-    if not close(sample[-1]["m2_over_H2"],lo["rims_stab"],atol=1e-12,rtol=1e-10):
-        raise ValueError("Lower bracket stability differs from source sampled row")
-    if not close(sample[-1]["s"],lo["s"],atol=1e-12,rtol=1e-10):
-        raise ValueError("Lower bracket occupancy differs from source sampled row")
+    # With a true native z=3 sample, that sample is the last inclusive
+    # z<=3 row; with a strict two-sided bracket it is the left row.
+    last_native=hi if exact_mesh else lo
+    if not close(sample[-1]["z"],last_native["z"],atol=1e-12,rtol=0):
+        raise ValueError("Last native sample differs from actual z<=3 source edge")
+    if not close(sample[-1]["m2_over_H2"],last_native["rims_stab"],atol=1e-12,rtol=1e-10):
+        raise ValueError("Native boundary mass differs from source sampled row")
+    if not close(sample[-1]["s"],last_native["s"],atol=1e-12,rtol=1e-10):
+        raise ValueError("Native boundary occupancy differs from source sampled row")
     # Keep endpoint numbers separate: this is a LINEAR DIAGNOSTIC, NOT a CLASS z=3 solve.
     t=(3.-z1)/(z2-z1)
     m3=(1-t)*lo["rims_stab"]+t*hi["rims_stab"]
