@@ -29,7 +29,7 @@ def test_initialization_and_final_background_do_not_reinsert_nonlinear(tmp_path)
             return {"z":[0.,1.,3.,1200.,3300.],
                     "phi_scf":[4.44]*5,
                     "rims_mratio":[1.]*5,
-                    "rims_m2eff_over_H2":[1.]*5}
+                    "rims_stab":[1.]*5,"rims_meff2":[1.]*5,"H [1/Mpc]":[1.]*5}
         def empty(self):pass
     class FakeModule:
         Class=FakeClass
@@ -38,7 +38,7 @@ def test_initialization_and_final_background_do_not_reinsert_nonlinear(tmp_path)
     r=native.run_case(FakeModule,m["cases"][0],m,tmp_path)
     assert r["run_status"]=="solver_completed"
     assert r["native_compute_attempts"]==2
-    assert r["code_version"]=="c29_native_background_v5"
+    assert r["code_version"]=="c30_native_background_v6"
     assert r["c26_initial_shell"]["gate"]=="EARLY_OCCUPANCY_PASS"
     audit=c24_audit.audit(m,tmp_path)
     assert audit["cases"][0]["status"]=="PHYSICAL_VALID"
