@@ -16,7 +16,7 @@ def audit_case(case,m,folder):
     frozen={"id":case["id"],"case_sha256":case["input_sha256"],
         "source_freeze_hash":m["freeze_hash"],"Class_upstream_commit":m["Class_upstream_commit"],
         "RIMS_patch_sha256":m["RIMS_patch_sha256"],"schema":"rims-c23-native-background-attempt-v1",
-        "MCMC":False,"synthetic_fixture":False,"code_version":"c30_native_background_v6"}
+        "MCMC":False,"synthetic_fixture":False,"code_version":"c32_native_background_v7"}
     for k,v in frozen.items():
         if r.get(k)!=v:issues.append("bad_"+k)
     n=r.get("native_compute_attempts")
