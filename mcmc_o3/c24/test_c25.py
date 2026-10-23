@@ -20,7 +20,7 @@ class GuardClass:
         return {"z":[0.,1.,2.,3.],
                 "phi_scf":[4.44,4.43,4.42,4.41],
                 "rims_mratio":[1.,1.,1.,1.],
-                "rims_m2eff_over_H2":[1.,1.,1.,1.]}
+                "rims_stab":[1.,1.,1.,1.],"rims_meff2":[1.,1.,1.,1.],"H [1/Mpc]":[1.,1.,1.,1.]}
     def empty(self):pass
 
 class GuardModule:
