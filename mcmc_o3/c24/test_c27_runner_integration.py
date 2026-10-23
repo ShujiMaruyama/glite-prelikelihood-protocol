@@ -16,7 +16,7 @@ class MockClass:
         return {"z":[0.,1.,3.,100.,1100.,3300.],
                 "phi_scf":[4.44]*6,
                 "rims_mratio":[1.]*6,
-                "rims_m2eff_over_H2":[1.]*6}
+                "rims_stab":[1.]*6,"rims_meff2":[1.]*6,"H [1/Mpc]":[1.]*6}
     def empty(self):pass
 
 class MockModule:
