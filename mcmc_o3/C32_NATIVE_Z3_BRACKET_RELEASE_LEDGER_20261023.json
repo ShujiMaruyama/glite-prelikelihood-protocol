@@ -1,0 +1,72 @@
+{
+  "schema": "RIMS_C32_REAL_NATIVE_Z3_MASS_BRACKET_PROTOCOL_V1",
+  "date": "2026-10-23",
+  "original_c30": {
+    "run_id": 39915717996,
+    "completed_native_compute": true,
+    "original_audit": "PHYSICAL_REJECT",
+    "sole_original_reason": "z_0to3_coverage_failed",
+    "original_native_history_rows": 40000,
+    "within_z0_3_native_rows": 1721,
+    "source_upper_bracket_z_left": 2.9995860999538064,
+    "source_upper_bracket_z_right": 3.0028107653487153,
+    "within_interval_mass_ratio_min": 0.0038950198287496926,
+    "original_right_bracket_mass_missing": true,
+    "artifact_id": 12484613205,
+    "archive_sha256": "87d50a33bd0a1e8d5cddbe760dce458aadcd185fc9772607a2e636e353a32c74"
+  },
+  "source": {
+    "parent_branch": "rims-c31-archival-native-grid-reanalysis-20261023",
+    "native_new_version": "c32_native_background_v7",
+    "frozen_81_grid_sha256": "0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0",
+    "identity_binds": [
+      "case SHA",
+      "original full-history z and phi SHA",
+      "original native row indices",
+      "nearby z=3 original full CLASS mass and H columns",
+      "SHA-locked bracket native event log"
+    ],
+    "script": "mcmc_o3/c24/c32_bracketed_endpoint_audit.py"
+  },
+  "scientific_gates": {
+    "grid_max_gap": 0.01,
+    "positive_H": true,
+    "lower_bound_native_stability_m2H2": -1e-10,
+    "require_consistent_meff2_over_H2": true,
+    "retain_old_c24_PHYSICAL_REJECT": true,
+    "require_c26_initial_s": true,
+    "require_c27_full_history": true,
+    "bracket_interpolant_not_exact_native": true,
+    "statuses": [
+      "NATIVE_GRID_BRACKETED_SAMPLED_PASS",
+      "NATIVE_Z3_EXACT_MESH_SAMPLED_PASS",
+      "FAIL"
+    ],
+    "safety_of_continuum_not_proven": true
+  },
+  "verification": {
+    "c30_previous_git_static_tests_pass": 70,
+    "c32_new_synthetic_tests_added": 11,
+    "c32_total_expected_static_tests": 81,
+    "c32_github_actions_runs": 0,
+    "c32_real_native_CLASS_runs": 0,
+    "second_solver_executed": false,
+    "original_c30_artifact_unchanged": true
+  },
+  "workflow": {
+    "registered_branch_and_main": ".github/workflows/rims-phaseii-c32-native-bracket-smoke.yml",
+    "manual_only": true,
+    "default": "static-only",
+    "optional": "single-case",
+    "native_single_case_only": "rims_000",
+    "no_auto_next_stage": true,
+    "no_MCMC": true
+  },
+  "production": {
+    "GetDist_Rminus1_lt": 0.01,
+    "min_headline_ESS_ge": 1000,
+    "LambdaCDM_competitiveness_verified": false,
+    "observation_fifth_force_detected": false,
+    "Bayes_factor": false
+  }
+}
