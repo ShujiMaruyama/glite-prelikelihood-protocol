@@ -21,6 +21,8 @@ class MockClass:
         mass=[.02]*len(z)
         if self.mode=="right_negative":
             mass[3]=-.03
+        if self.mode=="right_nonfinite":
+            mass[3]=float("nan")
         return {"z":z,"phi_scf":[4.44]*len(z),
                 "rims_mratio":[1.]*len(z),
                 "rims_stab":mass,"rims_meff2":list(mass),
@@ -127,3 +129,16 @@ def test_c32_exact_native_z3_is_not_mislabelled_interpolation(tmp_path):
     assert q["z3_boundary_estimate"]["is_exact_native_mesh_sample"] is True
     assert q["z3_boundary_estimate"]["method"]=="exact_native_mesh_sample"
     assert q["z3_boundary_estimate"]["not_continuum_stability_proof"] is True
+
+def test_c32_nan_just_above_z3_returns_machine_readable_failed_receipt(tmp_path):
+    m,r,p=produce(tmp_path,"right_nonfinite")
+    assert r["run_status"]=="solver_error"
+    assert r["c30_native_full_nonfinite_rows"]==1
+    assert r["input_native_nonfinite_count"]==0  # The invalid row is ABOVE z3
+    assert "nonfinite" in r["failure_message"]
+    assert "c32_native_z3_bracket" not in r
+    assert p.exists()
+    payload=json.loads(p.read_text())
+    assert payload["run_status"]=="solver_error"
+    assert c24_audit.audit(m,tmp_path)["cases"][0]["status"]=="SOLVER_FAILED"
+    assert not (tmp_path/"rims_000"/"c27_full_history_z_phi.json").exists()
