@@ -138,9 +138,20 @@ def run_case(classy,case,manifest,out):
             receipt["c30_mass_ratio_column"]="rims_stab"
             if z.ndim!=1 or not(z.shape==phi.shape==mr.shape==m2.shape==meff2.shape==hubble.shape):
                 raise RuntimeError("Patched CLASS full background array shape mismatch")
+            # Validate all unfiltered native physical fields BEFORE JSON
+            # serialization or bracket event creation. A bad CLASS row must
+            # remain a recorded solver failure, never an uncaught NaN crash.
             if not np.all(np.isfinite(z)):
                 raise RuntimeError("nonfinite CLASS native redshift coordinate; cannot identify z3 source bracket")
-
+            domain=(z>=0)&(z<=3)
+            finite_rows=(np.isfinite(phi)&np.isfinite(mr)&np.isfinite(m2)&
+                         np.isfinite(meff2)&np.isfinite(hubble))
+            receipt["input_native_nonfinite_count"]=int(np.count_nonzero(domain&~finite_rows))
+            receipt["c30_native_full_nonfinite_rows"]=int(np.count_nonzero(~finite_rows))
+            if receipt["c30_native_full_nonfinite_rows"]:
+                raise RuntimeError("RIMS full native background contains nonfinite physical values; no z3 bracket emitted")
+            if np.any(hubble<=0):
+                raise RuntimeError("RIMS full native background H is nonpositive; no z3 bracket emitted")
             # Preserve the two original, adjacent FULL CLASS samples around
             # z=3. No resampling and no claim of an exact z=3 CLASS sample.
             # The c27 full-history hash independently binds z and phi rows.
@@ -184,18 +195,7 @@ def run_case(classy,case,manifest,out):
                 event(f,"c32_native_z3_bracket_missing",{"z_max":float(np.max(z)),
                       "z_min":float(np.min(z))})
 
-            # Preserve c24's fail-closed, in-domain nonfinite row count even
-            # if the full-history consistency check fails before z-window export.
-            if not np.all(np.isfinite(z)):
-                raise RuntimeError("nonfinite CLASS redshift coordinate in full native history")
-            inside_precheck=(z>=0)&(z<=3)
-            finite_native=(np.isfinite(phi)&np.isfinite(mr)&np.isfinite(m2)&
-                           np.isfinite(meff2)&np.isfinite(hubble))
-            receipt["input_native_nonfinite_count"]=int(np.count_nonzero(
-                inside_precheck&~finite_native))
-            receipt["c30_native_full_nonfinite_rows"]=int(np.count_nonzero(~finite_native))
-            if receipt["c30_native_full_nonfinite_rows"] or np.any(hubble<=0):
-                raise RuntimeError("RIMS mass/H or matter columns contain nonfinite values or H<=0")
+            # Nonfinite source gate already enforced before bracket export.
             independent_ratio=meff2/(hubble*hubble)
             abs_delta=np.abs(independent_ratio-m2)
             receipt["c30_max_mass_ratio_reconstruction_error"]=float(np.max(abs_delta))
