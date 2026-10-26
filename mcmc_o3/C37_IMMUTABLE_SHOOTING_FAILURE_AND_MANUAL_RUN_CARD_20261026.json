@@ -1,0 +1,77 @@
+{
+  "schema": "RIMS_C37_UNTRUNCATED_FIRST_COMPUTE_DIAGNOSTIC_PRE_RUN_LEDGER_V1",
+  "date_jst": "2026-10-26",
+  "source": {
+    "prior_run_id": 40269433141,
+    "prior_branch": "rims-c35-frozen-occupancy-contrast-20261026",
+    "prior_head_sha": "285e39a444ee0c13f677785cad9ee64a87bc4f2d",
+    "prior_artifact_id": 12627798137,
+    "prior_artifact_sha256": "b5c5a80bf17a91069bf772f2f676949d3b77773d07dd79f25a631e405df1853c",
+    "prior_c36_sha256": "a25b55dda6a3bb0936e4e1d2173706b276bdae6f2786017e223fb48211ea4038",
+    "frozen_81_sha256": "0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0",
+    "failed_case": "rims_002",
+    "failed_case_sha256": "9bc753d2dd2843160e43ca9c37e4480d78513ef372ee9618831cc4447da6a284"
+  },
+  "original_failure": {
+    "class": "CosmoComputationError",
+    "failure_stage": "first normalization_background native CLASS compute",
+    "attempts": 1,
+    "successful_solves": 0,
+    "stored_exception_chars": 1000,
+    "stored_exception_sha256": "eb8b7a6e5e52cec209141a7c359c5e6947b5479bb076df592558853b41b4beaf",
+    "cause_not_yet_known": "untruncated inner C numerical failure",
+    "solver_nonexistence_not_proven": true
+  },
+  "new_branch": {
+    "branch_name": "rims-c37-exact-shooting-error-capture-20261026",
+    "source": "mcmc_o3/c37_exact_shooting_probe.py",
+    "test": "mcmc_o3/test_c37_exact_shooting_probe.py",
+    "manual_workflow": ".github/workflows/rims-phaseii-c37-exact-shooting-diagnostic.yml",
+    "source_original_first_phi_ref": 4.11730971054,
+    "original_rims_require_normalization": "no",
+    "source_cases_allowed": [
+      "rims_002"
+    ],
+    "max_native_computes": 1,
+    "per_probe_timeout_seconds": 240,
+    "new_offline_tests_added": 7,
+    "prior_static_pass_count": 92,
+    "expected_static_total": 99,
+    "static_test_executed_in_Github": false,
+    "real_native_c37_run_executed": false,
+    "retune_physical_inputs": false,
+    "automatic_retry": false,
+    "MCMC": false,
+    "full_background_solution_claim": false
+  },
+  "files_when_run": [
+    "exact_input.json",
+    "full_CLASS_exception.txt",
+    "full_python_traceback.txt",
+    "receipt.json",
+    "full_process_stdout.txt",
+    "full_process_stderr.txt",
+    "SHA256SUMS.txt"
+  ],
+  "preparation": {
+    "file": "RIMS_C37_SHOOTING_EXCEPTION_PREP_20261026.zip",
+    "sha256": "7b60e7cea928731788d63a378aaca0174b603fe4701c6f2c165147edb389a464",
+    "new_class_error_present": false,
+    "contains_unchanged_c35_and_c36_archive": true
+  },
+  "physical_campaign_status": {
+    "frozen_parameter_cases": 81,
+    "physically_attempted_unique_cases": 3,
+    "native_completed_unique_cases": 2,
+    "solver_failed_unique_cases": 1,
+    "unattempted": 78,
+    "model_preference": false,
+    "production_posterior": false,
+    "second_code": false,
+    "novelty_proven": false
+  },
+  "production_gate": {
+    "GetDist_Rminus1_strict_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000
+  }
+}
