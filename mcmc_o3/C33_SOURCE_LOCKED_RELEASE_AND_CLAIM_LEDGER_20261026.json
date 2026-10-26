@@ -1,0 +1,77 @@
+{
+  "schema": "RIMS_C33_PILOT_SOURCE_LOCKED_IDENTIFIABILITY_RELEASE_V1",
+  "created_jst": "2026-10-26",
+  "source": {
+    "real_run_id": 40247625798,
+    "source_workflow_number": 3,
+    "source_branch": "rims-c32-native-bracket-endpoint-gate-20261023",
+    "source_code_git_sha": "1e79b4add46cbd13643c1933e18fcfc952b1c206",
+    "original_artifact_git_id": 12619810731,
+    "original_artifact_sha256": "5263f9489ada68adcc76c6d5e756ea95b3dfff40dec2448d2f87cea0efbe85dd",
+    "frozen81_sha256": "0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0",
+    "case_id": "rims_000",
+    "case_sha256": "e95f274bbafd51e117c9286480da1be42278c1e4def4aae447c1968dc0471e61"
+  },
+  "scientific_result": {
+    "physically_executed_cases": 1,
+    "unexecuted_frozen_cases": 80,
+    "native_z0to3_samples": 1721,
+    "full_zphi_samples": 40000,
+    "Xi_max": 0.28506845738112,
+    "Xi_min": 0.06241009396523685,
+    "classification": "shielded",
+    "s_min": 0.09982144604791479,
+    "s_max": 0.09984461232053336,
+    "s_span": 0.000023166272618571626,
+    "alpha_U": 0.01,
+    "omega_phi0": 0.001,
+    "potential": "exponential",
+    "W_sagitta": 3.359836126067812e-12,
+    "fractional_W_sagitta": 3.7324587923603964e-10,
+    "ideal_three_node_5sigma_50pct_power_relative_W_noise_ceiling": 1.2190159369663571e-10,
+    "noise_criterion_is_real_survey_forecast": false,
+    "original_historical_c24_status": "PHYSICAL_REJECT",
+    "sole_old_reason": "z_0to3_coverage_failed",
+    "separate_c32_status": "NATIVE_GRID_BRACKETED_SAMPLED_PASS",
+    "sampled_mass_m2H2_positive": true,
+    "continuum_stability_proven": false
+  },
+  "new_delivery": {
+    "filename": "RIMS_C33_IDENTIFIABILITY_READONLY_20261026.zip",
+    "sha256": "fc6314c02c6e90925ae9c3f52134e6422fa145dc95f51fe6808ccb06ba48a3a6",
+    "zip_files": 13,
+    "internal_sha256_verified": true,
+    "original_native_zip_embedded_unchanged": true,
+    "local_new_tests": 8,
+    "local_new_tests_pass": 8,
+    "github_c33_actions_runs": 0,
+    "has_real_data_visualizations": true,
+    "has_81_case_csv_coverage": true,
+    "github_runnable_pilot_audit": "mcmc_o3/c33_pilot_identifiability.py",
+    "local_zip_and_github_sources_byte_identical": false
+  },
+  "claim_limits": {
+    "generic_mass_varying_DM_claimed_new": false,
+    "generic_fifth_force_claimed_new": false,
+    "RIMS_unique_falsifiable_cross_channel_signature_proven": false,
+    "matched_model_comparison_done": false,
+    "production_posterior": false,
+    "production_Bayes_factor": false,
+    "independent_second_solver": false,
+    "c18_eight_point_native_parity_verified": false
+  },
+  "next_gate": {
+    "all81_backgrounds": "NOT_RUN",
+    "no_cherry_picking": true,
+    "initial_81_case_design_hash_locked": true,
+    "for_each_case_retain_failed_attempts": true,
+    "Xi_classification": "shielded <1; transitional 1..10; resolved-QS >=10",
+    "compare_against": [
+      "coupled quintessence field-dependent DM mass",
+      "dark-matter Euler equivalence test",
+      "modified gravity versus dark force gravitational-redshift degeneracy"
+    ],
+    "production_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000
+  }
+}
