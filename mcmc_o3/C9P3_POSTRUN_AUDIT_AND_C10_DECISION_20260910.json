@@ -1,0 +1,121 @@
+{
+  "schema": "rims-phaseii-o3-c9p3-postrun-audit-and-c10-decision-v1",
+  "frozen_at_utc": "2026-09-10T06:15:00Z",
+  "c9p3_run_id": 34292919619,
+  "c9p3_head_sha": "378b16f0bef697bae5e2111c3d99156c0c44d50c",
+  "parent_run_id": 34189828640,
+  "source_artifacts": {
+    "scalar": {
+      "name": "rims-phaseii-o3-scalar-c9p3",
+      "github_artifact_digest": "sha256:82e7e27bd9f5925b727236b52ac5bb74be2a509a554e75e8fd074ddc51bd9005",
+      "internal_manifest_sha256": "f9a0d8c3dae2682deab7075e5ec65da334c1ade62c373926a44e7c5f93dc4b16"
+    },
+    "rims": {
+      "name": "rims-phaseii-o3-rims-c9p3",
+      "github_artifact_digest": "sha256:9c44dfb3326449ae0b98bde0f95211805fcc67befeed5f43704e986095053ad7",
+      "internal_manifest_sha256": "e703e5b588486e401732f162a1c4112baf44e08d034abadeb7397574cb213388"
+    }
+  },
+  "integrity": {
+    "scalar_parent_prefix_exact_all_four": true,
+    "rims_parent_prefix_exact_all_four": true,
+    "scalar_all_four_chains_added_rows": true,
+    "rims_all_four_chains_added_rows": true,
+    "timeout_exit_124_expected": true,
+    "silent_failure_detected": false
+  },
+  "official_getdist_diagnostics": {
+    "scalar": {
+      "c9p2_Rminus1": 0.3192193329592018,
+      "c9p3_Rminus1": 0.26682826382,
+      "c9p2_minimum_parameter_ESS": 36.20143858828906,
+      "c9p3_minimum_parameter_ESS": 30.73074,
+      "interpretation": "Rminus1 improved, but minimum ESS did not improve. The previous conversational value 38.94 is superseded by the artifact-level mcmc_summary value 30.73."
+    },
+    "rims": {
+      "c9p2_Rminus1": 2.484776730947973,
+      "c9p3_Rminus1": 0.9534180298700122,
+      "c9p2_minimum_parameter_ESS": 12.043037073138997,
+      "c9p3_minimum_parameter_ESS": 14.815454604046044,
+      "interpretation": "Substantial between-chain convergence progress, but still far outside the production gate."
+    }
+  },
+  "independent_rank_normalized_crosscheck": {
+    "method": "integer-weight step reconstruction; 30 percent burn-in removed per chain; equalized tails; rank-normalized split-Rhat and bulk/tail ESS",
+    "scalar_c9p3_worst": {
+      "parameter": "tau_reio",
+      "rank_Rhat": 1.118,
+      "bulk_ESS": 22.94
+    },
+    "rims_c9p3_worst": {
+      "parameter": "Omega_scf",
+      "rank_Rhat": 1.486,
+      "bulk_ESS": 7.91,
+      "tail_ESS": 7.70
+    },
+    "rims_alpha_U": {
+      "rank_Rhat": 1.470,
+      "bulk_ESS": 7.87,
+      "tail_ESS": 10.55
+    }
+  },
+  "transport_audit": {
+    "finding": "c9p3 reduced between-chain mean separation, especially for RIMS, but local autocorrelation and half-chain drift remain severe; the chains are traversing long posterior ridges rather than producing efficient stationary mixing.",
+    "rims_c9p3_bottlenecks": [
+      {"chain": 2, "parameter": "rims_alpha_U", "tau_approx": 293.6, "local_ESS_approx": 3.09, "half_drift_sigma": -1.739},
+      {"chain": 4, "parameter": "Omega_scf", "tau_approx": 332.6, "local_ESS_approx": 3.30, "half_drift_sigma": 1.678},
+      {"chain": 2, "parameter": "logA", "tau_approx": 257.7, "local_ESS_approx": 3.52, "half_drift_sigma": -1.663},
+      {"chain": 4, "parameter": "rims_alpha_U", "tau_approx": 310.4, "local_ESS_approx": 3.53, "half_drift_sigma": 1.603}
+    ],
+    "scalar_c9p3_bottleneck_examples": [
+      {"chain": 1, "parameter": "tau_reio", "local_ESS_approx": 7.60, "tau_approx": 295.0},
+      {"chain": 2, "parameter": "A_planck", "local_ESS_approx": 7.66, "tau_approx": 304.0}
+    ]
+  },
+  "proposal_geometry_reaudit": {
+    "c9_geometry_source_run": 34074123144,
+    "c9_diagonal_shrinkage": 0.15,
+    "c9_learn_proposal": false,
+    "c9_proposal_scale": 2.4,
+    "reason_for_refresh": "The frozen c9 covariance was trained on older c7 geometry. c9p3 now supplies later same-target within-chain posterior geometry. Reusing the c9p3 samples only to estimate a new frozen proposal covariance is adaptation/training, not production inference.",
+    "deterministic_c10_candidate": {
+      "coordinate_map_changed_from_c9": false,
+      "target_distribution_changed": false,
+      "burnin_fraction": 0.30,
+      "within_chain_only": true,
+      "diagonal_shrinkage": 0.15,
+      "corr_eigen_floor": 0.001,
+      "minimum_corr_eigenvalue_gate": 0.10,
+      "maximum_corr_condition_gate": 25.0,
+      "proposal_scale": 2.4,
+      "learn_proposal": false,
+      "fresh_four_chains_required": true,
+      "c9_samples_must_not_be_concatenated_with_c10_for_production": true,
+      "scalar_candidate_canonical_cov_sha256": "9ce8b41da3c267d030c20e1d087cfccef976e74911b56bf0e17da2a8d51fba80",
+      "scalar_candidate_min_corr_eig": 0.15451189493290776,
+      "scalar_candidate_corr_condition": 16.977357359078898,
+      "rims_candidate_canonical_cov_sha256": "9a9c9e1a83c4e4c35191ef8ca7a50d5f0ad56ae74695b9937ab26040458559f6",
+      "rims_candidate_min_corr_eig": 0.15384817539434814,
+      "rims_candidate_corr_condition": 23.48448809052234
+    }
+  },
+  "production_gate": {
+    "GetDist_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000.0,
+    "unchanged": true
+  },
+  "claim_boundary": {
+    "production_posterior": false,
+    "Bayes_factor": false,
+    "model_preference": false,
+    "LambdaCDM_competitiveness_verified": false
+  },
+  "decision": {
+    "automatic_c9p4": "FORBIDDEN",
+    "blind_same_geometry_c9_continuation": "STOP",
+    "next_phase": "C10_FRESH_FROZEN_PROPOSAL_GEOMETRY",
+    "reason": "c9p3 shows genuine cross-chain transport but low ESS and long autocorrelation. A fresh covariance refresh is better justified than accumulating more low-efficiency same-geometry time.",
+    "c10_first_run_role": "bounded diagnostic/pilot only until post-run transport audit",
+    "automatic_follow_on_after_c10": false
+  }
+}

@@ -1,0 +1,200 @@
+       class_store_columntitle(ppt->scalar_titles,"delta_cdm",pba->has_cdm);
+       class_store_columntitle(ppt->scalar_titles,"theta_cdm",pba->has_cdm);
+       /* Interacting dark matter */
+-      class_store_columntitle(ppt->scalar_titles,"delta_idm",pba->has_idm);
++      class_store_columntitle(ppt->scalar_titles,
++                              (pba->has_rims == _TRUE_) ? "delta_idm_number" : "delta_idm",
++                              pba->has_idm);
++      class_store_columntitle(ppt->scalar_titles,"delta_idm_energy",pba->has_rims);
+       class_store_columntitle(ppt->scalar_titles,"theta_idm",pba->has_idm);
+       /* Non-cold dark matter */
+       if ((pba->has_ncdm == _TRUE_) && ((ppt->has_density_transfers == _TRUE_) || (ppt->has_velocity_transfers == _TRUE_) || (ppt->has_source_delta_m == _TRUE_))) {
+@@ -3356,6 +3359,8 @@ int perturbations_prepare_k_output(struct background * pba,
+       /* Scalar field scf */
+       class_store_columntitle(ppt->scalar_titles, "delta_scf", pba->has_scf);
+       class_store_columntitle(ppt->scalar_titles, "theta_scf", pba->has_scf);
++      class_store_columntitle(ppt->scalar_titles, "delta_phi_scf", pba->has_rims);
++      class_store_columntitle(ppt->scalar_titles, "delta_phi_prime_scf", pba->has_rims);
+       /** Fluid */
+       class_store_columntitle(ppt->scalar_titles, "delta_rho_fld", pba->has_fld);
+       class_store_columntitle(ppt->scalar_titles, "rho_plus_p_theta_fld", pba->has_fld);
+@@ -5290,6 +5295,8 @@ int perturbations_initial_conditions(struct precision * ppr,
+   double om;
+   double ktau_two,ktau_three;
+   double f_dr;
++  double rims_delta_idm_adiabatic;
++  double rims_scalar_source;
+ 
+   double delta_tot;
+   double velocity_tot;
+@@ -5447,7 +5454,21 @@ int perturbations_initial_conditions(struct precision * ppr,
+ 
+       /* interacting dark matter */
+       if (pba->has_idm == _TRUE_) {
+-        ppw->pv->y[ppw->pv->index_pt_delta_idm] = 3./4.*ppw->pv->y[ppw->pv->index_pt_delta_g]; /* idm density */
++        if (pba->has_rims == _TRUE_) {
++          /* Adiabaticity applies to the IDM energy contrast,
++             D_d = D_n + alpha_d delta_phi:
++             D_d/(3-q) = delta_gamma/4.  The regular scalar
++             particular solution is inserted below before D_n is finalized. */
++          rims_delta_idm_adiabatic =
++            (3.-ppw->pvecback[pba->index_bg_rims_q])/4.
++            *ppw->pv->y[ppw->pv->index_pt_delta_g];
++          ppw->pv->y[ppw->pv->index_pt_delta_idm] =
++            rims_delta_idm_adiabatic;
++        }
++        else {
++          ppw->pv->y[ppw->pv->index_pt_delta_idm] =
++            3./4.*ppw->pv->y[ppw->pv->index_pt_delta_g];
++        }
+         ppw->pv->y[ppw->pv->index_pt_theta_idm] = ppw->pv->y[ppw->pv->index_pt_theta_g];
+       }
+ 
+@@ -5487,6 +5508,42 @@ int perturbations_initial_conditions(struct precision * ppr,
+         ppw->pv->y[ppw->pv->index_pt_phi_prime_scf] = 0.;
+         /* delta_fld expression * rho_scf with the w = 1/3, c_s = 1
+            a*a/ppw->pvecback[pba->index_bg_phi_prime_scf]*( - ktau_two/4.*(1.+1./3.)*(4.-3.*1.)/(4.-6.*(1/3.)+3.*1.)*ppw->pvecback[pba->index_bg_rho_scf] - ppw->pvecback[pba->index_bg_dV_scf]*ppw->pv->y[ppw->pv->index_pt_phi_scf])* ppr->curvature_ini * s2_squared; */
++
++        if ((pba->has_rims == _TRUE_) &&
++            (pba->rims_subleading_adiabatic_ic == _TRUE_) &&
++            (pba->rims_alpha_U != 0.)) {
++          /* V7 radiation-era completion.
++
++             With a proportional to tau, the RIMS KG source is regular and
++             starts as S_phi = S_1 tau + O(tau^2).  The regular particular
++             solution of
++
++               delta_phi'' + 2 delta_phi'/tau = S_1 tau
++
++             is delta_phi=S_phi(tau) tau^2/12 and
++             delta_phi'=S_phi(tau) tau/4.  Terms multiplying delta_phi in
++             the KG operator first correct this result two powers later.
++
++             This initializer adds only the RIMS-specific matter source.
++             The common uncoupled-scalar metric source is left in the
++             upstream CLASS convention, so alpha_U -> 0 remains an exact
++             regression to the unmodified control system. */
++          rims_scalar_source =
++            -a*a*3.*ppw->pvecback[pba->index_bg_rho_idm]
++            *ppw->pvecback[pba->index_bg_rims_alpha]
++            *rims_delta_idm_adiabatic;
++
++          ppw->pv->y[ppw->pv->index_pt_phi_scf] =
++            rims_scalar_source*tau*tau/12.;
++          ppw->pv->y[ppw->pv->index_pt_phi_prime_scf] =
++            rims_scalar_source*tau/4.;
++
++          /* Evolve conserved particle number, not energy density. */
++          ppw->pv->y[ppw->pv->index_pt_delta_idm] =
++            rims_delta_idm_adiabatic
++            -ppw->pvecback[pba->index_bg_rims_alpha]
++            *ppw->pv->y[ppw->pv->index_pt_phi_scf];
++        }
+       }
+ 
+       /* all relativistic relics: ur, early ncdm, dr */
+@@ -6790,6 +6847,7 @@ int perturbations_total_stress_energy(
+   double rho_relativistic;
+   double rho_dr_over_f;
+   double delta_rho_scf, delta_p_scf, psi;
++  double delta_idm_energy;
+   /** Variables used for FLD and PPF */
+   double c_gamma_k_H_square;
+   double Gamma_prime_plus_a_prime_over_a_Gamma, s2sq=1.;
+@@ -6965,12 +7023,19 @@ int perturbations_total_stress_energy(
+ 
+     /* idm contribution */
+     if (pba->has_idm == _TRUE_) {
+-      ppw->delta_rho += ppw->pvecback[pba->index_bg_rho_idm]*y[ppw->pv->index_pt_delta_idm];
++      delta_idm_energy = y[ppw->pv->index_pt_delta_idm];
++      if (pba->has_rims == _TRUE_) {
++        delta_idm_energy +=
++          ppw->pvecback[pba->index_bg_rims_alpha]
++          *y[ppw->pv->index_pt_phi_scf];
++      }
++
++      ppw->delta_rho += ppw->pvecback[pba->index_bg_rho_idm]*delta_idm_energy;
+       ppw->rho_plus_p_theta += ppw->pvecback[pba->index_bg_rho_idm]*y[ppw->pv->index_pt_theta_idm];
+       ppw->rho_plus_p_tot += ppw->pvecback[pba->index_bg_rho_idm];
+ 
+       if (ppt->has_source_delta_m == _TRUE_) {
+-        delta_rho_m += ppw->pvecback[pba->index_bg_rho_idm]*y[ppw->pv->index_pt_delta_idm]; // contribution to delta rho_matter
++        delta_rho_m += ppw->pvecback[pba->index_bg_rho_idm]*delta_idm_energy; // contribution to delta rho_matter
+         rho_m += ppw->pvecback[pba->index_bg_rho_idm];
+       }
+       if ((ppt->has_source_delta_m == _TRUE_) || (ppt->has_source_theta_m == _TRUE_)) {
+@@ -7845,6 +7910,20 @@ int perturbations_sources(
+     if (ppt->has_source_delta_idm == _TRUE_) {
+       _set_source_(ppt->index_tp_delta_idm) = y[ppw->pv->index_pt_delta_idm]
+         + 3.*a_prime_over_a*theta_over_k2; // N-body gauge correction
++      if (pba->has_rims == _TRUE_) {
++        _set_source_(ppt->index_tp_delta_idm) +=
++          pvecback[pba->index_bg_rims_alpha]
++          *y[ppw->pv->index_pt_phi_scf];
++        /*
++         * D_n transforms with 3 H T, while delta_phi transforms with
++         * -phi' T.  The energy contrast D_d=D_n+alpha*delta_phi
++         * therefore carries the required (3 H-alpha*phi')T factor.
++         */
++        _set_source_(ppt->index_tp_delta_idm) -=
++          pvecback[pba->index_bg_rims_alpha]
++          *pvecback[pba->index_bg_phi_prime_scf]
++          *theta_over_k2;
++      }
+     }
+ 
+     /* delta_dcdm */
+@@ -8117,7 +8196,8 @@ int perturbations_print_variables(double tau,
+   double delta_g,theta_g,shear_g,l4_g,pol0_g,pol1_g,pol2_g,pol4_g;
+   double delta_b,theta_b;
+   double delta_cdm=0.,theta_cdm=0.;
+-  double delta_idm=0., theta_idm=0.;
++  double delta_idm=0., delta_idm_energy=0., theta_idm=0.;
++  double delta_phi_scf_output=0.;
+   double delta_dcdm=0.,theta_dcdm=0.;
+   double delta_dr=0.,theta_dr=0.,shear_dr=0., f_dr=1.0;
+   double delta_ur=0.,theta_ur=0.,shear_ur=0.,l4_ur=0.;
+@@ -8535,8 +8615,21 @@ int perturbations_print_variables(double tau,
+     /* Cold dark matter */
+     class_store_double(dataptr, delta_cdm, pba->has_cdm, storeidx);
+     class_store_double(dataptr, theta_cdm, pba->has_cdm, storeidx);
+-    /* Interacting dark matter */
++    /* Interacting dark matter: expose both the conserved-number and
++       stress-energy density contrasts for RIMS diagnostics. */
++    if (pba->has_rims == _TRUE_) {
++      delta_phi_scf_output = y[ppw->pv->index_pt_phi_scf];
++      if ((ppt->gauge == synchronous) &&
++          (ppt->get_perturbations_in_current_gauge == _FALSE_)) {
++        delta_phi_scf_output +=
++          alpha*pvecback[pba->index_bg_phi_prime_scf];
++      }
++      delta_idm_energy =
++        delta_idm
++        +pvecback[pba->index_bg_rims_alpha]*delta_phi_scf_output;
++    }
+     class_store_double(dataptr, delta_idm, pba->has_idm, storeidx);
++    class_store_double(dataptr, delta_idm_energy, pba->has_rims, storeidx);
+     class_store_double(dataptr, theta_idm, pba->has_idm, storeidx);
+     /* Non-cold Dark Matter */
+     if ((pba->has_ncdm == _TRUE_) && ((ppt->has_density_transfers == _TRUE_) || (ppt->has_velocity_transfers == _TRUE_) || (ppt->has_source_delta_m == _TRUE_))) {
+@@ -8557,6 +8650,8 @@ int perturbations_print_variables(double tau,
+     /* Scalar field scf*/
+     class_store_double(dataptr, delta_scf, pba->has_scf, storeidx);
+     class_store_double(dataptr, theta_scf, pba->has_scf, storeidx);
++    class_store_double(dataptr, delta_phi_scf_output, pba->has_rims, storeidx);
++    class_store_double(dataptr, y[ppw->pv->index_pt_phi_prime_scf], pba->has_rims, storeidx);
+     /** Fluid */
+     class_store_double(dataptr, ppw->delta_rho_fld, pba->has_fld, storeidx);
+     class_store_double(dataptr, ppw->rho_plus_p_theta_fld, pba->has_fld, storeidx);
+@@ -9019,6 +9114,14 @@ int perturbations_derivs(double tau,
+         +metric_euler
+         + k2*c2_idm*delta_idm; /* idm velocity */
+ 
++      if (pba->has_rims == _TRUE_) {
++        dy[pv->index_pt_theta_idm] +=
++          -pvecback[pba->index_bg_rims_alpha]
++          *pvecback[pba->index_bg_phi_prime_scf]*theta_idm
++          +k2*pvecback[pba->index_bg_rims_alpha]
++          *y[pv->index_pt_phi_scf];
++      }
++

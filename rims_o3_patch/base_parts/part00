@@ -1,0 +1,100 @@
+diff --git a/include/background.h b/include/background.h
+index fe4d42d..59157e5 100644
+--- a/include/background.h
++++ b/include/background.h
+@@ -118,6 +118,18 @@ struct background
+   double phi_ini_scf;      /**< \f$ \phi(t_0) \f$: scalar field initial value */
+   double phi_prime_ini_scf;/**< \f$ d\phi(t_0)/d\tau \f$: scalar field initial derivative wrt conformal time */
+   int scf_parameters_size; /**< size of scf_parameters */
++
++  short rims_enabled;                /**< activate the RIMS field-dependent-mass completion */
++  short rims_enforce_stability;      /**< reject backgrounds with negative RIMS effective mass squared */
++  short rims_require_normalization;  /**< require phi(a=1)=rims_phi_ref within tolerance */
++  short rims_subleading_adiabatic_ic; /**< initialize the regular radiation-era scalar particular solution */
++  double rims_alpha_U;               /**< asymptotic dimensionless RIMS charge */
++  double rims_phi_transition;        /**< logistic transition field value in reduced-Planck units */
++  double rims_phi_ref;               /**< reference field value used to normalize the dark-matter mass */
++  double rims_normalization_tolerance; /**< allowed relative mass-normalization mismatch */
++  double rims_stability_tolerance;   /**< allowed negative m_eff^2/H^2 from numerical roundoff */
++  short rims_in_shooting;            /**< defer final-time normalization during CLASS shooting trials */
++
+   double varconst_alpha; /**< finestructure constant for varying fundamental constants */
+   double varconst_me; /**< electron mass for varying fundamental constants */
+   enum varconst_dependence varconst_dep; /**< dependence of the varying fundamental constants as a function of time */
+@@ -182,6 +194,15 @@ struct background
+   int index_bg_p_scf;         /**< scalar field pressure */
+   int index_bg_p_prime_scf;         /**< scalar field pressure */
+ 
++  int index_bg_rims_s;             /**< bounded mass-shell fraction s */
++  int index_bg_rims_alpha;         /**< scalar charge alpha_d */
++  int index_bg_rims_dalpha_dphi;   /**< field derivative of alpha_d */
++  int index_bg_rims_mass_ratio;    /**< m_d(phi)/m_d(phi_ref) */
++  int index_bg_rims_q;             /**< Q/(H rho_d) */
++  int index_bg_rims_meff2;         /**< full scalar effective mass squared */
++  int index_bg_rims_stability_margin; /**< m_eff^2/H^2 */
++  int index_bg_rims_closure;       /**< s+alpha_d/alpha_U-1 */
++
+   int index_bg_rho_ncdm1;     /**< density of first ncdm species (others contiguous) */
+   int index_bg_p_ncdm1;       /**< pressure of first ncdm species (others contiguous) */
+   int index_bg_pseudo_p_ncdm1;/**< another statistical momentum useful in ncdma approximation */
+@@ -284,6 +305,7 @@ struct background
+   short has_dcdm;      /**< presence of decaying cold dark matter? */
+   short has_dr;        /**< presence of relativistic decay radiation? */
+   short has_scf;       /**< presence of a scalar field? */
++  short has_rims;      /**< presence of the RIMS field-dependent-mass sector? */
+   short has_ncdm;      /**< presence of non-cold dark matter? */
+   short has_lambda;    /**< presence of cosmological constant? */
+   short has_fld;       /**< presence of fluid with constant w and cs2? */
+@@ -569,6 +591,31 @@ extern "C" {
+                double phi_prime
+                );
+ 
++  double rims_s(
++                struct background *pba,
++                double phi
++                );
++
++  double rims_alpha(
++                    struct background *pba,
++                    double phi
++                    );
++
++  double rims_dalpha_dphi(
++                          struct background *pba,
++                          double phi
++                          );
++
++  double rims_mass_curvature(
++                             struct background *pba,
++                             double phi
++                             );
++
++  double rims_mass_ratio(
++                         struct background *pba,
++                         double phi
++                         );
++
+ #ifdef __cplusplus
+ }
+ #endif
+diff --git a/source/background.c b/source/background.c
+index 87d60c6..e6895e4 100644
+--- a/source/background.c
++++ b/source/background.c
+@@ -398,6 +398,9 @@ int background_functions(
+   double w_fld, dw_over_da, integral_fld;
+   /* scalar field quantities */
+   double phi, phi_prime;
++  /* RIMS response quantities */
++  double rims_s_value, rims_alpha_value, rims_dalpha_value;
++  double rims_mass_ratio_value, rims_mass_curvature_value;
+   /* Since we only know a_prime_over_a after we have rho_tot,
+      it is not possible to simply sum up p_tot_prime directly.
+      Instead we sum up dp_dloga = p_prime/a_prime_over_a. The formula is
+@@ -444,7 +447,19 @@ int background_functions(
+ 
+   /* idm */
+   if (pba->has_idm == _TRUE_) {
+-    pvecback[pba->index_bg_rho_idm] = pba->Omega0_idm * pow(pba->H0,2) / pow(a,3);
++    if (pba->has_rims == _TRUE_) {
++      phi = pvecback_B[pba->index_bi_phi_scf];
