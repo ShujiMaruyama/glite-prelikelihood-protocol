@@ -62,6 +62,16 @@ jobs:
     timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
+      - name: Install pinned NumPy before importing native preflight source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'numpy==2.5.3'
+          python - <<'PY'
+          import numpy
+          assert numpy.__version__ == "2.5.3"
+          print("PINNED_C37_PREFLIGHT_NUMPY_READY",numpy.__version__)
+          PY
       - name: Verify original 81-case manifest without replacing any frozen inputs
         shell: bash
         run: |
