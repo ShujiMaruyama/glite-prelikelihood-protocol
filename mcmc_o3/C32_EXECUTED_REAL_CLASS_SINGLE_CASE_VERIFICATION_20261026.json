@@ -1,0 +1,81 @@
+{
+  "schema": "RIMS_C32_EXECUTED_NATIVE_SINGLE_CASE_VERIFIED_RECEIPT_V1",
+  "date_jst": "2026-10-26",
+  "git": {
+    "repo": "ShujiMaruyama/glite-prelikelihood-protocol",
+    "source_branch": "rims-c32-native-bracket-endpoint-gate-20261023",
+    "executed_head_sha": "1e79b4add46cbd13643c1933e18fcfc952b1c206",
+    "workflow_run_id": 40247625798,
+    "workflow_run_number": 3,
+    "workflow_conclusion": "success",
+    "static_job": "success",
+    "single_native_job": "success",
+    "static_pytest_pass": 82,
+    "static_pytest_fail": 0,
+    "github_physics_artifact_id": 12619810731,
+    "github_static_artifact_id": 12619521392
+  },
+  "artifact": {
+    "filename": "RIMS_c32_native_run_40247625798.zip",
+    "sha256": "5263f9489ada68adcc76c6d5e756ea95b3dfff40dec2448d2f87cea0efbe85dd",
+    "entries": 10,
+    "sha256_manifest_entries": 9,
+    "sha256_manifest_matches_all": true,
+    "receipt_compute_log_sha_valid": true,
+    "receipt_history_sha_valid": true
+  },
+  "frozen_input": {
+    "sha256": "0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0",
+    "executed_case_id": "rims_000",
+    "case_sha256": "e95f274bbafd51e117c9286480da1be42278c1e4def4aae447c1968dc0471e61",
+    "unattempted_cases": 80
+  },
+  "native_physics": {
+    "source_version": "c32_native_background_v7",
+    "native_compute_attempts": 4,
+    "normalization_successes": 3,
+    "final_background_status": "solver_completed",
+    "normalization_ratio_minus_one": 2.346995930935236e-10,
+    "full_native_z_phi_rows": 40000,
+    "window_0_to_3_rows": 1721,
+    "initial_occupancy_target": 0.1,
+    "initial_occupancy_actual": 0.10000000000000003,
+    "initial_gate": "EARLY_OCCUPANCY_PASS",
+    "c27_source_history_gate": "EARLY_OCCUPANCY_PASS",
+    "native_window_min_m2_H2": 0.0038950198287496926,
+    "native_window_max_m2_H2": 0.08126402539365145,
+    "native_window_nonfinite_rows": 0,
+    "native_bracket_z": [
+      2.9995860999538064,
+      3.0028107653487153
+    ],
+    "native_bracket_m2_H2": [
+      0.0038950198287496926,
+      0.0038860598627962198
+    ],
+    "bracket_width": 0.0032246653949088433,
+    "linear_z3_interpolated_m2_H2_diagnostic": 0.003893869777545034,
+    "exact_native_z3_sample": false,
+    "actual_compiled_extension_sha256": "0ce2b93108e4267e33aa33dc181d7d8c64a45d1b355afbe6da577057813cb5f4"
+  },
+  "audit": {
+    "legacy_original_status": "PHYSICAL_REJECT",
+    "legacy_original_issue": "z_0to3_coverage_failed",
+    "c32_separate_status": "NATIVE_GRID_BRACKETED_SAMPLED_PASS",
+    "claim_is_only_sampled_grid": true,
+    "continuous_domain_stability_proven": false,
+    "tensor_gradient_stability_proven": false,
+    "independent_second_solver_run": false,
+    "c18_eight_start_native_parity_proven": false,
+    "model_preference_or_posterior": false,
+    "any_Bayes_factor": false
+  },
+  "next_research_gates": [
+    "Preserve frozen 81 cases and retain each physical failure",
+    "Independent solver matched parity across eight starts",
+    "Full 81-trajectory parameter reachability physical campaign after explicit authorization",
+    "Higher-order perturbation and tensor/gradient stability",
+    "Observational forward and matched covariance/likelihood plus nonlinear cuts",
+    "GetDist R-1<0.01 and min ESS>=1000 before production posterior"
+  ]
+}
