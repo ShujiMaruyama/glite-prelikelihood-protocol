@@ -1,0 +1,85 @@
+{
+  "schema": "RIMS_C38_NATIVE_CLASS_STABILITY_VETO_VERIFIED_EVIDENCE_V1",
+  "date_jst": "2026-10-26",
+  "github": {
+    "real_c37_run": 40277614362,
+    "conclusion": "success",
+    "static_pytest_pass": 100,
+    "static_pytest_fail": 0,
+    "native_diagnostic_job": "success",
+    "native_first_normalization_solver": "failed",
+    "executed_git_sha": "a64f2fb2ea54a9fd2b92d93fbec13a00ba5bf3b9",
+    "artifact_id": 12630937571,
+    "artifact_name": "rims-c37-one-shooting-exception",
+    "artifact_zip_sha256": "795171946cdbe1ddb3e0f220ecbf73e9e1d81427262d6dab24dbc03b6ea44e1a",
+    "interior_sha256_verified_files": 8
+  },
+  "authentic_source": {
+    "frozen81_sha256": "0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0",
+    "case_id": "rims_002",
+    "case_sha256": "9bc753d2dd2843160e43ca9c37e4480d78513ef372ee9618831cc4447da6a284",
+    "original_c35_first1000_error_sha256": "eb8b7a6e5e52cec209141a7c359c5e6947b5479bb076df592558853b41b4beaf",
+    "confirmed_prefix_hash_equal": true,
+    "complete_c37_error_bytes": 1426,
+    "full_c37_error_sha256": "2809b68bd7b500fbda2f81d80dd5ed0e0acfd88a0f3b5de7e722a85117e008e0",
+    "traceback_bytes": 1735,
+    "traceback_sha256": "b31017a41e3eb2c6086e2e12d655704a7f68b44fa5a6b469af8dfbd47a0374cd",
+    "compiled_class_sha256": "59247bf1cecaf43ec97eae8543371304c36f4730cbe14398edce0dc8fb2e5f37",
+    "input_json_sha256": "b212691605dbb2e1c8a95bd26f5dfedd93b19d7b6a0b02a6b21df6b0055fb1a1"
+  },
+  "class_error": {
+    "kind": "CosmoComputationError",
+    "stage": "first normalization_background Class.compute()",
+    "attempts": 1,
+    "successful_normalization_steps": 0,
+    "nest": [
+      "input_find_root",
+      "background_init",
+      "background_solve",
+      "evolver_ndf15",
+      "background_derivs",
+      "background_functions L624"
+    ],
+    "source_guard": "rims_enforce_stability && rims_stability_margin < -rims_stability_tolerance",
+    "source_margin_formula": "(ddV_scf + 3*rho_idm*rims_mass_curvature)/H^2",
+    "a_from_printed_trace": 3.945905e-10,
+    "approx_z": 2534272871.763029,
+    "m2_over_H2_from_printed_trace": -1.004939e-10,
+    "tolerance": 1e-10,
+    "positive_threshold_violation_from_rounded_trace": 4.939e-13,
+    "violation_fraction_tolerance": 0.004939,
+    "is_exact_unrounded_margin": false,
+    "reason": "RIMS physical stability veto during background integration, causing higher-level shooting failure",
+    "cause_stable_under_precision_changes": "UNTESTED",
+    "physical_no_solution": "UNPROVEN"
+  },
+  "status": {
+    "prior_c35_rims_002": "SOLVER_FAILED",
+    "prior_c32_rims_000": "NATIVE_GRID_BRACKETED_SAMPLED_PASS",
+    "prior_c35_rims_001": "NATIVE_GRID_BRACKETED_SAMPLED_PASS",
+    "unique_cases_attempted": 3,
+    "completed_final_backgrounds": 2,
+    "solver_failed_cases": 1,
+    "not_attempted": 78,
+    "new_CLASS_computes_by_c38": 0,
+    "MCMC": false,
+    "posterior": false,
+    "model_preference": false,
+    "Bayes_factor": false
+  },
+  "next_hard_gate": [
+    "Keep original m2/H2 threshold and physical parameters unchanged",
+    "Log two independent m_eff^2 numerator terms with full double precision at triggering time",
+    "Predeclare numerical convergence changes and retain original failure",
+    "Do not disable stability gate and call it a successful solution",
+    "Validate full perturbations and observables separately"
+  ],
+  "local_audit": {
+    "zip": "RIMS_C38_EXACT_STABILITY_THRESHOLD_FORENSIC_20261026.zip",
+    "sha256": "51e9e710da994d806d89b6827ecdfed968aa61260e910c37e55b5556fb3bc6f5",
+    "source_zip_unchanged": true,
+    "offline_new_tests_pass": 5,
+    "offline_new_tests_fail": 0,
+    "hash_manifest_pass": true
+  }
+}
