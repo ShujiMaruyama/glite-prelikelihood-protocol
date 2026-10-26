@@ -1,0 +1,100 @@
+{
+  "schema": "RIMS_C35_REAL_CLASS_SOURCE_ALIGNMENT_AND_PAIR_CAMPAIGN_READY_V1",
+  "date_jst": "2026-10-26",
+  "lineage": {
+    "c32_native_real_GitHub_run": 40247625798,
+    "c32_artifact_sha256": "5263f9489ada68adcc76c6d5e756ea95b3dfff40dec2448d2f87cea0efbe85dd",
+    "c34_complete_zip_sha256": "47e867e5f259bed1ec3fed1331c98797b6bea4144c0b72f096898a96d6772020",
+    "frozen_81_sha256": "0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0"
+  },
+  "source_direct_forensic": {
+    "full_original_z_phi_rows": 40000,
+    "cropped_z0to3_rows": 1721,
+    "exact_native_join_count": 1721,
+    "maximum_z_mismatch": 0,
+    "maximum_s_from_phi_mismatch": 0,
+    "delta_phi": 0.012889285584219756,
+    "delta_beta": 2.3166272618627137e-7,
+    "max_beta_nonlinearity_vs_endpoint_secant": 5.974425815180595e-12,
+    "relative_to_mean_beta": 6.637002235090118e-10,
+    "this_is_an_observational_signal": false
+  },
+  "predeclared_control": {
+    "previously_executed_reference": "rims_000",
+    "new_cases": [
+      "rims_001",
+      "rims_002"
+    ],
+    "frozen_s_i": [
+      0.1,
+      0.3333333333333333,
+      0.65
+    ],
+    "mass_curvature_signs": [
+      "POSITIVE",
+      "ZERO",
+      "NEGATIVE"
+    ],
+    "beta_theory": [
+      0.009,
+      0.006666666666666666,
+      0.0035
+    ],
+    "conditional_2beta2_proxy": [
+      0.000162,
+      0.00008888888888888887,
+      0.0000245
+    ],
+    "previously_physically_executed_cases": 1,
+    "remaining_not_yet_executed_cases": 80,
+    "future_case_001_002_new_physical_runs": 0,
+    "no_cherrypicking": true,
+    "source_exact_mass_curvature_is_NOT_total_effective_mass": true,
+    "source_curvature_sign_at_initial_occupancy_not_an_observed_sign": true
+  },
+  "execution": {
+    "runner": "mcmc_o3/c35_frozen_pair_run.py",
+    "independent_auditor": "mcmc_o3/c35_pair_audit.py",
+    "static_test": "mcmc_o3/test_c35_frozen_pair.py",
+    "manual_workflow": ".github/workflows/rims-phaseii-c35-frozen-occupancy-pair.yml",
+    "registered_in_main_and_branch": true,
+    "default_mode": "static-only",
+    "explicit_physical_mode": "pair-2",
+    "per_case_timeout_seconds": 600,
+    "manual_only": true,
+    "no_81_batch": true,
+    "no_MCMC": true,
+    "no_auto_followon": true,
+    "static_GitHub_target_tests": 92,
+    "static_GitHub_executed": false,
+    "pair_physical_GitHub_executed": false
+  },
+  "local_package": {
+    "filename": "RIMS_C35_SOURCE_MATCH_AND_FROZEN_PAIR_20261026.zip",
+    "sha256": "e2636d79d3d581c7ba54869f247471897283a1369f102e1f2e2447ae9e8e477b",
+    "bytes": 2311804,
+    "inner_file_count": 10,
+    "sha256_inner_files_checked": true,
+    "includes_unchanged_c32_original": true,
+    "includes_unchanged_c34_cumulative": true,
+    "new_local_offline_tests_pass": 18,
+    "source_github_and_local_forensics_are_different_programs": true
+  },
+  "original_claim_boundary": {
+    "c24_strict_status": "PHYSICAL_REJECT",
+    "c24_reason": "z_0to3_coverage_failed",
+    "c32_separate_status": "NATIVE_GRID_BRACKETED_SAMPLED_PASS",
+    "full_background_universality": false,
+    "perturbative_tensor_gradient_safety": false,
+    "second_code": false,
+    "model_uniqueness": false,
+    "production_posterior": false,
+    "LambdaCDM_preference": false,
+    "fifth_force_detection": false,
+    "Bayes_factor": false
+  },
+  "production_threshold": {
+    "GetDist_Rminus1_strict_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000
+  }
+}
