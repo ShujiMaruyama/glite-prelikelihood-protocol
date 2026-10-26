@@ -1,0 +1,46 @@
+{
+  "schema": "rims-phaseii-o3-c7-to-c8-decision-v1",
+  "date": "2026-09-07",
+  "c7_run_id": 34074123144,
+  "c7_head_sha": "da10fd58e2b243e3d0bc9d4dfe579a13783713cb",
+  "c7_artifacts": {
+    "scalar": {
+      "artifact_id": 10003139229,
+      "sha256_digest": "b7f55bc5deb3d1a6eff7d6805d3cf0a35fa3e0dd788cb0220566a8b39e91e8cd",
+      "getdist_Rminus1": 0.038808928845792456,
+      "minimum_parameter_ESS": 330.6670573688677,
+      "c7_only_acceptance_estimate": 0.6253731343283582,
+      "added_distinct_rows": 2514,
+      "added_markov_weight": 4020.0
+    },
+    "rims": {
+      "artifact_id": 10003149606,
+      "sha256_digest": "90f5b73efbc206a1341362e08c67ace2331f61fc3f2b3ec241ffb72791012a97",
+      "getdist_Rminus1": 0.1169880408993462,
+      "minimum_parameter_ESS": 78.42402499791372,
+      "c7_only_acceptance_estimate": 0.5877742946708464,
+      "added_distinct_rows": 1500,
+      "added_markov_weight": 2552.0,
+      "chain2_Omega_scf": {
+        "c6_tau_int": 727.2298740724602,
+        "c7_tau_int": 704.9745074680679,
+        "c7_acf_ESS": 8.563430217756418,
+        "c7_half_chain_drift_sigma": -0.8300314104637704,
+        "tau_ratio_c7_over_c6": 0.9693970640597581
+      }
+    }
+  },
+  "frozen_production_gate": {
+    "GetDist_Rminus1_lt": 0.01,
+    "minimum_headline_ESS_ge": 1000.0
+  },
+  "decision": "PROMOTE_FRESH_C8_NONLINEAR_TRANSPORT",
+  "reason": "Persistent proposal-scale tuning lowered c7-only acceptance but did not materially improve the dominant curved RIMS transport bottleneck; both scalar and RIMS remain outside the frozen production gate. Per the predeclared c7/c8 transport protocol, do not blind-resume c7.",
+  "production_hygiene": {
+    "c6_c7_chains_are_diagnostic_only_for_transport_learning": true,
+    "c8_is_fresh_four_chain_candidate": true,
+    "combine_c6_c7_with_c8_for_headline_posterior": false,
+    "target_distribution_changed": false,
+    "evidence_or_model_preference_claim_allowed_now": false
+  }
+}
