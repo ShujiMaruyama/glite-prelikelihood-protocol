@@ -24,7 +24,7 @@ env:
 
 jobs:
   static-check:
-    if: github.ref_name == 'rims-c37-frozen-occupancy-contrast-20261026'
+    if: github.ref_name == 'rims-c37-exact-shooting-error-capture-20261026'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
