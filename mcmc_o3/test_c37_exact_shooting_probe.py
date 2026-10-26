@@ -44,6 +44,8 @@ def test_full_exception_retained_without_1000_character_cap(tmp_path):
     assert r["compute_attempts"]==1 and FailClass.calls==1
     assert len(msg)>1000
     assert r["error_sha256"]==hashlib.sha256(msg).hexdigest()
+    assert r["c35_failure_prefix_matches"] is False
+    assert r["c35_original_truncated_error_prefix_sha256"]=="eb8b7a6e5e52cec209141a7c359c5e6947b5479bb076df592558853b41b4beaf"
     assert json.loads((tmp_path/"probe"/"receipt.json").read_text())==r
 def test_existing_output_never_overwritten(tmp_path):
     m,c=manifest_and_case()
