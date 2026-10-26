@@ -1,0 +1,72 @@
+{
+  "schema": "RIMS_C39_SOURCE_EXACT_DECOMPOSITION_PRE_EXECUTION_LEDGER_V1",
+  "date_jst": "2026-10-26",
+  "lineage": {
+    "original_native_diagnostic_run": 40277614362,
+    "original_c37_executed_sha": "a64f2fb2ea54a9fd2b92d93fbec13a00ba5bf3b9",
+    "prior_c38_audit_sha": "933a2bcbc5b2f16412a694ee636851366a08bdcc",
+    "frozen_81_inputs_sha256": "0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0",
+    "frozen_failed_case_id": "rims_002",
+    "frozen_failed_case_sha256": "9bc753d2dd2843160e43ca9c37e4480d78513ef372ee9618831cc4447da6a284",
+    "original_c37_exception_bytes": 1426,
+    "original_c35_error_prefix_sha256": "eb8b7a6e5e52cec209141a7c359c5e6947b5479bb076df592558853b41b4beaf"
+  },
+  "actually_observed_before_c39": {
+    "scale_factor_rounded": 3.945905e-10,
+    "original_native_stability_ratio_rounded": -1.004939e-10,
+    "original_native_tolerance": 1e-10,
+    "original_veto_overshoot_rounded": 4.939e-13,
+    "first_native_class_compute_failed": true,
+    "physical_source_components_separately_measured": false,
+    "convergence_test_completed": false
+  },
+  "prospective_numerical_gates": {
+    "source_mass_formula": "m_eff^2 = Vpp + 3*rho_idm*mass_curvature",
+    "source_guard_original": "rims_enforce_stability AND m_eff^2/H^2 < -rims_stability_tolerance",
+    "unchanged_original_tolerance": 1e-10,
+    "printed_double_precision_significant_digits": 17,
+    "condition_number": "K=(|Vpp|+|3 rho_idm mass_curvature|)/|m_eff^2|",
+    "source_log_marker": "RIMS_C39_TERMS_V1",
+    "must_reproduce_full_1000_character_c35_error_sha": true,
+    "all_native_veto_records_audited": true,
+    "do_not_disable_original_stability_veto": true,
+    "no_solver_parameter_changes": true
+  },
+  "implementation": {
+    "branch": "rims-c39-native-stability-term-decomposition-20261026",
+    "instrument": "mcmc_o3/c39_instrument_stability_terms.py",
+    "independent_auditor": "mcmc_o3/c39_audit_raw_stability_terms.py",
+    "static_tests": "mcmc_o3/test_c39_raw_stability_decomposition.py",
+    "new_synthetic_tests_added": 10,
+    "prior_verified_static_tests": 100,
+    "new_total_planned_static_tests": 110,
+    "new_static_tests_verified_in_Github": false,
+    "workflow": ".github/workflows/rims-phaseii-c39-source-terms-veto.yml",
+    "workflow_registered_on_main": true,
+    "workflow_registered_on_branch": true,
+    "manual_dispatch_only": true,
+    "default": "static-only",
+    "explicit_native_mode": "source-terms-one",
+    "max_native_compute_attempts": 1,
+    "native_case_only": "rims_002",
+    "wall_timeout_seconds": 240,
+    "no_MCMC": true,
+    "no_automatic_phase_promotion": true,
+    "new_native_runs_by_c39": 0
+  },
+  "science": {
+    "unique_cases_physically_attempted_prior_to_c39": 3,
+    "physically_solved_native_backgrounds": 2,
+    "solver_failed_cases": 1,
+    "frozen_cases_not_attempted": 78,
+    "root_cause_terms_currently_unresolved": true,
+    "background_viability_proven": false,
+    "total_scalar_perturbation_hyperbolicity_proven": false,
+    "observational_unique_signature_proven": false,
+    "lambdaCDM_preference": false,
+    "Bayes_factor": false,
+    "production_posterior": false,
+    "production_GetDist_Rminus1_strict_lt": 0.01,
+    "production_minimum_headline_ESS_ge": 1000
+  }
+}
