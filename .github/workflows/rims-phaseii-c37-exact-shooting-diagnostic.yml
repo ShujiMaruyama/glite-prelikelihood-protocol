@@ -1,0 +1,145 @@
+name: RIMS c37 exact frozen shooting failure capture (manual only)
+on:
+  workflow_dispatch:
+    inputs:
+      run_mode:
+        description: "Static-only default; first-compute-only repeats exactly one previously failed initial CLASS shooting call"
+        required: true
+        type: choice
+        default: static-only
+        options:
+          - static-only
+          - first-compute-only
+permissions:
+  contents: read
+concurrency:
+  group: rims-c37-${{ github.ref }}-${{ inputs.run_mode }}
+  cancel-in-progress: false
+env:
+  OMP_NUM_THREADS: 1
+  OPENBLAS_NUM_THREADS: 1
+  MKL_NUM_THREADS: 1
+  OPENMPI_MCA_btl_vader_single_copy_mechanism: none
+  PYTHONUNBUFFERED: 1
+
+jobs:
+  static-check:
+    if: github.ref_name == 'rims-c37-frozen-occupancy-contrast-20261026'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install small offline test environment
+        run: python -m pip install 'pytest>=8,<10' 'numpy==2.5.3'
+      - name: Verify frozen c23 design, execute native-free regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p c37_artifacts
+          python -m compileall -q mcmc_o3/c24 mcmc_o3/c37_exact_shooting_probe.py
+          python mcmc_o3/c24/c23_freeze.py --output c37_artifacts/C23_FROZEN_81.json
+          python - <<'PY'
+          import json
+          x=json.load(open('c37_artifacts/C23_FROZEN_81.json'))
+          assert x['freeze_hash']=='0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0'
+          assert len(x['cases'])==81
+          print('EXACT C23 FROZEN 81 INPUT DESIGN: PASS, PHYSICAL RUN COUNT=0')
+          PY
+          python -m pytest -q mcmc_o3/c24/test_c24.py mcmc_o3/c24/test_c25.py mcmc_o3/c24/test_c26_occupancy_gate.py mcmc_o3/c24/test_c26_native_receipt_bridge.py mcmc_o3/c24/test_c27_history_integrity.py mcmc_o3/c24/test_c27_runner_integration.py mcmc_o3/c24/test_c28_background_input.py mcmc_o3/c24/test_c29_ic_parser_regression.py mcmc_o3/c24/test_c30_stability_column.py mcmc_o3/c24/test_c32_bracketed_endpoint.py mcmc_o3/test_c35_frozen_pair.py mcmc_o3/test_c37_exact_shooting_probe.py | tee c37_artifacts/static_pytest.txt
+          python mcmc_o3/c35_frozen_pair_run.py --manifest c37_artifacts/C23_FROZEN_81.json --plan-only --output c37_artifacts/c35_locked_pair_plan.json
+          (cd c37_artifacts && sha256sum C23_FROZEN_81.json static_pytest.txt c35_locked_pair_plan.json > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-c37-static-audit
+          path: c37_artifacts
+          retention-days: 30
+
+  exact-first-failed-compute:
+    if: github.ref_name == 'rims-c37-exact-shooting-error-capture-20261026' && inputs.run_mode == 'first-compute-only'
+    needs: static-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify original 81-case manifest without replacing any frozen inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mcmc_o3/c24/c23_freeze.py --output C23_FROZEN_81.json
+          python - <<'PY'
+          import json
+          import sys
+          sys.path.insert(0,"mcmc_o3/c24")
+          sys.path.insert(0,"mcmc_o3")
+          import c37_exact_shooting_probe as p
+          m=json.load(open("C23_FROZEN_81.json"))
+          assert m["freeze_hash"]=="0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0"
+          assert p.exact_params(m["cases"][2])["rims_require_normalization"]=="no"
+          assert m["cases"][2]["id"]=="rims_002"
+          print("Exactly ONE old failed RIMS 002 first normalization attempt authorized; no rescue")
+          PY
+      - name: Pin and patch original CLASS V18.29 exactly
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > rims_o3_patch/V18_23_TO_V18_29.patch
+          echo '6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74  rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff' | sha256sum -c -
+          echo 'c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc  rims_o3_patch/V18_23_TO_V18_29.patch' | sha256sum -c -
+          git clone https://github.com/lesgourg/class_public.git class_public
+          git -C class_public checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          (cd class_public && git apply ../rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff && git apply ../rims_o3_patch/V18_23_TO_V18_29.patch && git diff --check)
+      - name: Build exact pinned compiled CLASS implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install 'cython<4' 'numpy==2.5.3' scipy
+          (cd class_public && python setup.py build)
+          python -m pip install -e ./class_public
+      - name: Run ONE first-normalization compute and capture entire native exception
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p c37_results
+          timeout --signal=TERM --kill-after=30s 240s \
+            python -u mcmc_o3/c37_exact_shooting_probe.py \
+              --manifest C23_FROZEN_81.json \
+              --output c37_results/probe \
+              --class-source class_public \
+              --base-patch rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff \
+              --delta-patch rims_o3_patch/V18_23_TO_V18_29.patch \
+              --one rims_002 \
+            > c37_results/full_process_stdout.txt 2> c37_results/full_process_stderr.txt
+          rc=$?
+          printf '%s\n' "$rc" > c37_results/subprocess_returncode.txt
+          cat c37_results/full_process_stdout.txt
+          if test "$rc" -ne 0; then
+            echo "::error::Original shooting diagnostic did not reproduce identically or timed out; evidence retained"
+            exit "$rc"
+          fi
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          r=json.loads(Path("c37_results/probe/receipt.json").read_text())
+          f=Path("c37_results/probe/full_CLASS_exception.txt").read_bytes()
+          assert r["status"]=="ORIGINAL_SHOOTING_FAILURE_REPRODUCED"
+          assert r["compute_attempts"]==1 and r["normalization_or_final_background_certified"] is False
+          assert len(f)>1000 and hashlib.sha256(f).hexdigest()==r["error_sha256"]
+          print("FULL ORIGINAL ERROR CAPTURE VERIFIED; NO RIMS PHYSICS SUCCESS CLAIM")
+          PY
+      - name: Preserve whole success/failure diagnostic and SHA256 manifest
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p c37_results
+          cp C23_FROZEN_81.json c37_results/ 2>/dev/null
+          (cd c37_results && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-c37-one-shooting-exception
+          path: c37_results
+          retention-days: 30
