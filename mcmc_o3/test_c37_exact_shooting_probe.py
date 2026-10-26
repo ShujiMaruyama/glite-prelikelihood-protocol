@@ -68,3 +68,14 @@ def test_frozen_manifest_injected_change_fail_closed(tmp_path):
     Module.Class=FailClass
     with pytest.raises(ValueError):
         p.single_probe(Module,c,m,tmp_path/"probe",__file__)
+
+def test_real_workflow_installs_numpy_before_python_preflight_import():
+    wf=Path(__file__).resolve().parents[1]/".github/workflows/rims-phaseii-c37-exact-shooting-diagnostic.yml"
+    y=wf.read_text()
+    start=y.index("  exact-first-failed-compute:")
+    end=y.index("      - name: Pin and patch original CLASS V18.29 exactly",start)
+    preflight=y[start:end]
+    assert "python -m pip install --disable-pip-version-check 'numpy==2.5.3'" in preflight
+    assert preflight.index("numpy==2.5.3")<preflight.index("import c37_exact_shooting_probe as p")
+    assert "run_mode == 'first-compute-only'" in preflight
+    assert "rims_002" in preflight
