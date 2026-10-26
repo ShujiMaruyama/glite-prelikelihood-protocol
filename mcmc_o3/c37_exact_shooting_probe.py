@@ -38,6 +38,13 @@ def single_probe(classy,case,manifest,out,binary):
         frames="".join(traceback.format_exception(exc)).encode("utf-8",errors="backslashreplace")
         (out/"full_CLASS_exception.txt").write_bytes(message)
         (out/"full_python_traceback.txt").write_bytes(frames)
+        # c35's original receipt kept only the first 1,000 characters.
+        # Compare that immutable prefix separately; never call a different
+        # native shooting cause byte-identical merely because its class matches.
+        legacy_prefix=str(exc)[:1000].encode("utf-8",errors="backslashreplace")
+        receipt["c35_original_truncated_error_prefix_sha256"]="eb8b7a6e5e52cec209141a7c359c5e6947b5479bb076df592558853b41b4beaf"
+        receipt["c35_failure_prefix_matches"]=(
+            hashlib.sha256(legacy_prefix).hexdigest()==receipt["c35_original_truncated_error_prefix_sha256"])
         receipt["error_type"]=type(exc).__name__
         receipt["full_error_bytes"]=len(message)
         receipt["error_sha256"]=hashlib.sha256(message).hexdigest()
