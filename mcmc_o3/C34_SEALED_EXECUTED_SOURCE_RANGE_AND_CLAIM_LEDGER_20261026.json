@@ -1,0 +1,93 @@
+{
+  "schema": "RIMS_C34_RANGE_COUPLING_FALSIFIABILITY_SEALED_V1",
+  "created_jst": "2026-10-26",
+  "lineage": {
+    "parent": "rims-c33-pilot-identifiability-20261026",
+    "c32_real_run_id": 40247625798,
+    "c32_execution_git_sha": "1e79b4add46cbd13643c1933e18fcfc952b1c206",
+    "c32_original_zip_sha256": "5263f9489ada68adcc76c6d5e756ea95b3dfff40dec2448d2f87cea0efbe85dd",
+    "c33_original_zip_embedded_unchanged": true,
+    "frozen_input81_sha256": "0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0"
+  },
+  "source_exact_math": {
+    "mass_ratio": "sqrt(s(phi)/s(phi_ref))",
+    "beta": "alpha_U*(1-s)",
+    "beta_phi_derivative": "-2*beta*(alpha_U-beta)",
+    "mass_curvature": "alpha_U^2*(1-s)*(1-3*s)",
+    "source_mass_curvature_zero": "s=1/3",
+    "c23_frozen_initial_mass_curvature_counts": {
+      "positive": 27,
+      "zero": 27,
+      "negative": 27
+    },
+    "native_1_case_beta_min": 0.009001553876794667,
+    "native_1_case_beta_max": 0.009001785539520853,
+    "native_1_case_Xi_max": 0.28506845738112,
+    "compton_over_hubble_lower_bound_if_mass_is_physical_pole": 3.50792932051075,
+    "c24_old_shielded_is_only_archived_label": true,
+    "c33_shape_precision_not_force_amplitude": true
+  },
+  "conditional_QS_model_proxy": {
+    "formula": "Gamma_DD=2 beta^2 * Q^2/(Q^2+Xi^2)",
+    "Q": "k/(aH)",
+    "canonical_normalization_and_dark_dark_only_required": true,
+    "Q_at_native_z3_example": 26.6679658892648,
+    "mass_fraction_at_native_z3_Q": 0.9999945231920467,
+    "Gamma_massless_min": 0.0001620559443936742,
+    "Gamma_massless_max": 0.0001620642857990535,
+    "Gamma_massless_span": 8.34140537929939e-9,
+    "all_frozen_81_analytic_alpha_count": {
+      "0.01": 27,
+      "0.05": 27,
+      "0.1": 27
+    },
+    "conditional_percent_strict_upper_bounds": {
+      "0.01": 0.02,
+      "0.05": 0.5,
+      "0.1": 2
+    },
+    "true_observed_euler_lensing_redshift_Gamma": false
+  },
+  "identifiability_veto": {
+    "three_node_exact_smooth_competitor_constructed": true,
+    "epsilon": 0.00001,
+    "competitor_cosmological_perturbations_executed": false,
+    "latent_curvature_uniqueness_claim": false,
+    "cross_channel_uniqueness_demonstrated": false,
+    "background_physically_valid_universally": false
+  },
+  "verified": {
+    "original_c24_status": "PHYSICAL_REJECT",
+    "sole_c24_reason": "z_0to3_coverage_failed",
+    "distinct_c32_status": "NATIVE_GRID_BRACKETED_SAMPLED_PASS",
+    "native_CLASS_physical_cases_before_c34": 1,
+    "unattempted_frozen_81_cases": 80,
+    "c34_new_CLASS_compute_calls": 0,
+    "c34_local_tests_passed": 19,
+    "c34_local_tests_failed": 0,
+    "c34_github_actions_runs": 0,
+    "c34_zip_all_inner_sha256_verified": true
+  },
+  "deliverable": {
+    "name": "RIMS_C34_RANGE_COUPLING_FALSIFICATION_20261026.zip",
+    "sha256": "47e867e5f259bed1ec3fed1331c98797b6bea4144c0b72f096898a96d6772020",
+    "bytes": 1674997,
+    "entries": 15,
+    "has_c32_original_unchanged": true,
+    "has_c33_original_unchanged": true,
+    "has_technical_note_references_bib_and_three_figures": true,
+    "github_source_companion": "mcmc_o3/c34_frozen_mass_curvature_gate.py",
+    "github_companion_scope": "frozen-input analytic gates; not equivalent to full c34 original-source forensic package"
+  },
+  "science_boundaries": {
+    "no_prior_art_priority_claim": true,
+    "no_ΛCDM_competitiveness_claim": true,
+    "no_Bayes_factor": true,
+    "no_detection": true,
+    "no_production_posterior": true,
+    "no_independent_solver_parity": true,
+    "no_full_81_native_campaign": true,
+    "production_required_GetDist_Rminus1_lt": 0.01,
+    "production_required_min_headline_ESS_ge": 1000
+  }
+}
