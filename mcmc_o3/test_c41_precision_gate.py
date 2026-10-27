@@ -93,15 +93,34 @@ def test_compute_attempts_cannot_be_zero():
     bad=record("tight100-one");bad["compute_calls_attempted"]=0
     with pytest.raises(ValueError):c.compare(BASELINE,[record("tight10-one"),bad])
 
-def test_c40_original_is_preserved():
-    # C40 must be the archived ORIGINAL, not merely any sufficiently large ZIP.
+def test_c40_external_archive_integrity_only_when_supplied():
+    """The immutable C40 ZIP is *external evidence*, not part of this Git checkout.
+
+    Missing evidence is explicitly SKIPPED, never misreported as a passed
+    archive-integrity audit. If independently supplied, verify the exact
+    registered bytes rather than merely checking for an arbitrary ZIP.
+    """
     import hashlib, zipfile
     p=Path(__file__).resolve().parents[1]/"evidence"/"RIMS_C40_EXACT_LOCAL_VETO_ENVELOPE_20261027.zip"
-    assert p.is_file() and p.stat().st_size == 74199
+    if not p.is_file():
+        pytest.skip("C40 original ZIP not supplied to GitHub checkout: external integrity audit NOT performed")
+    assert p.stat().st_size == 74199
     assert hashlib.sha256(p.read_bytes()).hexdigest() == "6d17d50f2079a94a58ed27867ab43ec9fc1b0d1d3cd702fe158b94824459df6b"
     with zipfile.ZipFile(p) as z:
         assert z.testzip() is None
         assert "outputs/C40_ACTUAL_FIXED_SLICE_AUDIT.json" in z.namelist()
+
+
+def test_c41_ledger_preserves_c39_evidence_boundary():
+    """A passing static suite cannot claim that C40/C41 physical validation ran."""
+    j=g.check_registry()
+    assert j["lineage"]["c39_artifact_sha256"] == (
+        "08318f04e7d1e7a0edfa7a69eefd1c2dcf0c19c152ef4640db7b6b33df83e160")
+    assert j["lineage"]["frozen_case_id"] == "rims_002"
+    assert j["experiment"]["run_mode_default"] == "static-only"
+    assert j["experiment"]["original_veto_must_remain_enabled"] is True
+    assert j["execution_receipts"]["integration_convergence_verified"] is False
+    assert j["execution_receipts"]["two_new_native_computes_executed"] is False
 
 
 def test_independent_raw_stderr_reparse(tmp_path):
