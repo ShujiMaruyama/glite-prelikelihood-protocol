@@ -1,0 +1,64 @@
+{
+  "schema": "RIMS_C41_PINNED_PRECISION_TWO_RUN_PREDECLARATION_V1",
+  "date_jst": "2026-10-27",
+  "author": "Shuji Maruyama",
+  "copyright": "© 2026 Shuji Maruyama. All rights reserved.",
+  "lineage": {
+    "class_upstream_commit": "e85808324f51fc694d12e3ed7439552a3c3f9540",
+    "c39_base_branch": "rims-c39-native-stability-term-decomposition-20261026",
+    "c39_artifact_sha256": "08318f04e7d1e7a0edfa7a69eefd1c2dcf0c19c152ef4640db7b6b33df83e160",
+    "c23_81_freeze": "0893eb71e09208c2579652d405f54277647f92ce1de33ee8a0e492ce2547cda0",
+    "frozen_case_id": "rims_002",
+    "frozen_case_sha256": "9bc753d2dd2843160e43ca9c37e4480d78513ef372ee9618831cc4447da6a284",
+    "class_base_patch_sha256": "6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74",
+    "class_delta_patch_sha256": "c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc"
+  },
+  "pinned_class_precision_source": {
+    "path": "include/precisions.h",
+    "parsing_macro": "include/macros_precision.h -> class_read_double(#NAME,ppr->NAME)",
+    "input_parser": "source/input.c includes precisions.h with __PARSE_PRECISION_PARAMETER__",
+    "background_solver_use": "source/background.c: ppr->tol_background_integration -> generic_evolver",
+    "tol_background_integration_default": 1e-10,
+    "background_Nloga_default": 40000,
+    "background_evolver_default": "ndf15",
+    "shooting_tolerances": "unchanged",
+    "no_sampling_change": true
+  },
+  "experiment": {
+    "baseline": {
+      "source": "C39 Run #2 original archived failed shooting iterate",
+      "tol_background_integration": 1e-10,
+      "new_native_attempts": 0
+    },
+    "manual_modes": {
+      "tight10-one": {"tol_background_integration": 1e-11, "max_new_compute_calls": 1},
+      "tight100-one": {"tol_background_integration": 1e-12, "max_new_compute_calls": 1}
+    },
+    "max_additional_manual_workflow_dispatches": 2,
+    "per_mode_timeout_seconds": 240,
+    "change_only": "tol_background_integration",
+    "diagnostic_overlay": "unchanged C39 RIMS_C39_TERMS_V1",
+    "original_veto_tolerance": 1e-10,
+    "original_veto_must_remain_enabled": true,
+    "no_shooting_retuning": true,
+    "no_81_case_batch": true,
+    "no_MCMC": true,
+    "run_mode_default": "static-only",
+    "automatic_native_runs": 0
+  },
+  "decision_gates": {
+    "any_missing_native_veto_record": "SOURCE_RECORD_UNAVAILABLE",
+    "any_source_or_input_mismatch": "NUMERICAL_UNRESOLVED",
+    "consistent_negative_native_source_with_no_matched_root_brackets": "SAME_NEGATIVE_SOURCE_SIGN_NOT_CONVERGED",
+    "strict_numerical_convergence": "NOT_CLAIMED_BY_THIS_PROGRAM",
+    "solver_shooting_failure": "preserve_original_solver_failure_classification",
+    "observational_detection_or_model_preference": false,
+    "valid_normalized_background_proven": false
+  },
+  "execution_receipts": {
+    "two_new_native_cases_executed": false,
+    "two_new_native_computes_executed": false,
+    "integration_convergence_verified": false,
+    "note": "Pre-execution registry only. Never change these fields based on future observations; make separately dated run receipts."
+  }
+}
