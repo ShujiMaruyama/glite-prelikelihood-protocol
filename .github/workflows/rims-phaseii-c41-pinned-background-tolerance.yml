@@ -1,0 +1,180 @@
+name: RIMS c41 pinned integrator precision, predeclared one-case probe (manual only)
+on:
+  workflow_dispatch:
+    inputs:
+      run_mode:
+        description: 'Static-only safe default; optional one frozen failure at 10x or 100x tighter background integration tolerance'
+        required: true
+        type: choice
+        default: static-only
+        options:
+          - static-only
+          - tight10-one
+          - tight100-one
+permissions:
+  contents: read
+concurrency:
+  group: rims-c41-${{ github.ref }}-${{ inputs.run_mode }}
+  cancel-in-progress: false
+env:
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  PYTHONUNBUFFERED: '1'
+jobs:
+  static-check:
+    if: github.ref_name == 'rims-c41-pinned-precision-convergence-20261027'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install small test environment
+        run: python -m pip install 'pytest>=8,<10' 'numpy==2.5.3'
+      - name: Frozen input and C41 registry gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p c41_static
+          python -m compileall -q mcmc_o3/c41_precision_gate.py mcmc_o3/c41_precision_probe.py mcmc_o3/c41_compare_receipts.py
+          python mcmc_o3/c24/c23_freeze.py --output c41_static/C23_FROZEN_81.json
+          python - <<'PY'
+          import json,sys
+          sys.path.insert(0,'mcmc_o3')
+          from c41_precision_gate import check_registry
+          x=check_registry()
+          m=json.load(open('c41_static/C23_FROZEN_81.json'))
+          assert m['freeze_hash']==x['lineage']['c23_81_freeze']
+          assert m['cases'][2]['input_sha256']==x['lineage']['frozen_case_sha256']
+          assert len(m['cases'])==81
+          print('C41 PINNED PRECISION PREFLIGHT ONLY; new native computes = 0')
+          PY
+          python -m pytest -q \
+            mcmc_o3/c24/test_c24.py mcmc_o3/c24/test_c25.py \
+            mcmc_o3/c24/test_c26_occupancy_gate.py mcmc_o3/c24/test_c26_native_receipt_bridge.py \
+            mcmc_o3/c24/test_c27_history_integrity.py mcmc_o3/c24/test_c27_runner_integration.py \
+            mcmc_o3/c24/test_c28_background_input.py mcmc_o3/c24/test_c29_ic_parser_regression.py \
+            mcmc_o3/c24/test_c30_stability_column.py mcmc_o3/c24/test_c32_bracketed_endpoint.py \
+            mcmc_o3/test_c35_frozen_pair.py mcmc_o3/test_c37_exact_shooting_probe.py \
+            mcmc_o3/test_c39_raw_stability_decomposition.py \
+            mcmc_o3/test_c41_precision_gate.py | tee c41_static/pytest.txt
+          (cd c41_static && sha256sum C23_FROZEN_81.json pytest.txt > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-c41-static-preflight
+          path: c41_static
+          retention-days: 30
+  manual-single-compute:
+    if: github.ref_name == 'rims-c41-pinned-precision-convergence-20261027' && inputs.run_mode != 'static-only'
+    needs: static-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin NumPy before any RIMS preflight module import
+        run: |
+          python -m pip install --disable-pip-version-check 'numpy==2.5.3'
+          python -c "import numpy; assert numpy.__version__ == '2.5.3'"
+      - name: Freeze original 81 and check chosen manually authorized mode
+        shell: bash
+        env:
+          RUN_MODE: ${{ inputs.run_mode }}
+        run: |
+          set -euo pipefail
+          mkdir -p c41_results
+          python mcmc_o3/c24/c23_freeze.py --output C23_FROZEN_81.json
+          python - <<'PY'
+          import os,sys,json
+          sys.path.insert(0,'mcmc_o3')
+          from c41_precision_gate import check_registry,EXPECTED_MODES
+          x=check_registry()
+          assert os.environ['RUN_MODE'] in EXPECTED_MODES
+          m=json.load(open('C23_FROZEN_81.json'))
+          assert m['freeze_hash']==x['lineage']['c23_81_freeze']
+          assert m['cases'][2]['id']=='rims_002'
+          print('EXACTLY ONE C41 CLASS.compute CALL AUTHORIZED',os.environ['RUN_MODE'])
+          PY
+      - name: Reconstruct and checksum original RIMS patches, pin original CLASS
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > rims_o3_patch/V18_23_TO_V18_29.patch
+          echo '6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74  rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff' | sha256sum -c -
+          echo 'c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc  rims_o3_patch/V18_23_TO_V18_29.patch' | sha256sum -c -
+          git clone https://github.com/lesgourg/class_public.git class_public
+          git -C class_public checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          (cd class_public && git apply ../rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff && git apply ../rims_o3_patch/V18_23_TO_V18_29.patch && git diff --check)
+      - name: Verify precision defaults and source-only C39 instrumentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('class_public/include/precisions.h').read_text()
+          macro=Path('class_public/include/macros_precision.h').read_text()
+          inp=Path('class_public/source/input.c').read_text()
+          bg=Path('class_public/source/background.c').read_text()
+          assert 'class_precision_parameter(tol_background_integration,double,1.e-10)' in p
+          assert 'class_precision_parameter(background_Nloga,int,40000)' in p
+          assert 'class_type_parameter(background_evolver,int,enum evolver_type,ndf15)' in p
+          assert 'class_read_ ## TYPE(#NAME,ppr->NAME)' in macro
+          assert '__PARSE_PRECISION_PARAMETER__' in inp
+          assert 'ppr->tol_background_integration' in bg
+          print('Pinned CLASS tolerance/default/parser/binary algorithm source verified')
+          PY
+          python mcmc_o3/c39_instrument_stability_terms.py --source class_public/source/background.c --audit-out c41_results/source_overlay_audit.json
+          python - <<'PY'
+          import json
+          s=json.load(open('c41_results/source_overlay_audit.json'))
+          assert s['source_sha256_before_overlay']=='28ed80d0b006990b983f3971f58d302858cfdcc7ee72156f1fe0668eee3af661'
+          assert s['source_sha256_after_overlay']=='08f6bad70c6c479bc5d6946d2a6332263bca47f8a8d7f7dcc87d9c93df681027'
+          assert s['reconstruction_original_sha256']==s['source_sha256_before_overlay']
+          print('C39 ORIGINAL + C41 PROSPECTIVE SOURCE FORENSIC SHA LOCK PASS')
+          PY
+          (cd class_public && git diff --check)
+      - name: Build pinned native CLASS extension
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install 'cython<4' 'numpy==2.5.3' scipy
+          (cd class_public && python setup.py build)
+          python -m pip install -e ./class_public
+      - name: Precisely one frozen first compute at registered tolerance, no rescue
+        shell: bash
+        env:
+          RUN_MODE: ${{ inputs.run_mode }}
+        run: |
+          set -uo pipefail
+          timeout --signal=TERM --kill-after=30s 240s \
+            python -u mcmc_o3/c41_precision_probe.py \
+              --manifest C23_FROZEN_81.json \
+              --class-source class_public \
+              --base-patch rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff \
+              --delta-patch rims_o3_patch/V18_23_TO_V18_29.patch \
+              --mode "$RUN_MODE" \
+              --out c41_results/probe \
+              --stderr c41_results/native_stderr.txt \
+            > c41_results/native_stdout.txt 2> c41_results/native_stderr.txt
+          rc=$?
+          printf '%s\n' "$rc" > c41_results/returncode.txt
+          cat c41_results/native_stdout.txt
+          if test "$rc" -ne 0; then
+            echo '::error::C41 source/solver/preflight diagnostic not certified, failure retained; do NOT rerun automatically'
+            exit "$rc"
+          fi
+      - name: Preserve full provenance, success and failure alike
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p c41_results
+          cp C23_FROZEN_81.json c41_results/ 2>/dev/null
+          (cd c41_results && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-c41-native-one-${{ inputs.run_mode }}
+          path: c41_results
+          retention-days: 30
