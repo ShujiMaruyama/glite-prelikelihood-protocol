@@ -1,0 +1,34 @@
+{
+  "schema": "RIMS_C42_SESSION_RESILIENT_GATE_STATE_V1",
+  "date_jst": "2026-10-27",
+  "research_branch": "RIMS_ONLY",
+  "parent_git_branch": "rims-c41-pinned-precision-convergence-20261027",
+  "parent_git_commit": "05b77218bd63c925172c003c7293452d95f8f4d9",
+  "c41_verified_runs": {
+    "static": 40460488206,
+    "tight10": 40465268375,
+    "tight100": 40468067745
+  },
+  "c42_diagnostic": {
+    "source": "immutable C40 original, C41 run #3, C41 run #4",
+    "R_over_a_approx": -0.254678986,
+    "relative_spread": 1.4248957112390758e-9,
+    "conditional_threshold_crossing_a_approx": 3.92651163e-10,
+    "observed_crossing": false,
+    "accepted_common_epoch_count": 0,
+    "convergence_proven": false,
+    "new_CLASS_runs": 0
+  },
+  "required_next_gate": "Independently verify CLASS a_ini and accepted-step common-a interval; do not infer from NDF15 tnew trial veto; stop if there is no shared accepted interval",
+  "do_not_change": [
+    "rims_002 scientific input",
+    "original stability veto",
+    "C41 outcomes and artifacts"
+  ],
+  "claim_boundary": [
+    "no normalized solution",
+    "no convergence",
+    "no production posterior",
+    "no model preference"
+  ]
+}
