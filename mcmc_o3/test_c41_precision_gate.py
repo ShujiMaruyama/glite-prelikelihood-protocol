@@ -94,8 +94,14 @@ def test_compute_attempts_cannot_be_zero():
     with pytest.raises(ValueError):c.compare(BASELINE,[record("tight10-one"),bad])
 
 def test_c40_original_is_preserved():
+    # C40 must be the archived ORIGINAL, not merely any sufficiently large ZIP.
+    import hashlib, zipfile
     p=Path(__file__).resolve().parents[1]/"evidence"/"RIMS_C40_EXACT_LOCAL_VETO_ENVELOPE_20261027.zip"
-    assert p.exists() and p.stat().st_size > 50000
+    assert p.is_file() and p.stat().st_size == 74199
+    assert hashlib.sha256(p.read_bytes()).hexdigest() == "6d17d50f2079a94a58ed27867ab43ec9fc1b0d1d3cd702fe158b94824459df6b"
+    with zipfile.ZipFile(p) as z:
+        assert z.testzip() is None
+        assert "outputs/C40_ACTUAL_FIXED_SLICE_AUDIT.json" in z.namelist()
 
 
 def test_independent_raw_stderr_reparse(tmp_path):
