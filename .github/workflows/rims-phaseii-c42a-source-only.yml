@@ -1,0 +1,67 @@
+name: RIMS c42a trial-versus-accepted source-only preflight (manual only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: rims-c42a-source-only-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  source-preflight:
+    if: github.ref_name == 'rims-c42-common-epoch-gate-20261027'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: C42A self-contained negative and source-insertion tests
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s mcmc_o3 -p test_c42a_source_probe.py -v
+      - name: Reconstruct original patch lineage without native compute
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p c42a_static
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > rims_o3_patch/V18_23_TO_V18_29.patch
+          echo '6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74  rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff' | sha256sum -c -
+          echo 'c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc  rims_o3_patch/V18_23_TO_V18_29.patch' | sha256sum -c -
+          git clone https://github.com/lesgourg/class_public.git class_public
+          git -C class_public checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          (cd class_public && git apply ../rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff && git apply ../rims_o3_patch/V18_23_TO_V18_29.patch && git diff --check)
+      - name: Reproduce C39 byte-exact diagnostic source before C42A overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mcmc_o3/c39_instrument_stability_terms.py --source class_public/source/background.c --audit-out c42a_static/C39_SOURCE_AUDIT.json
+          python - <<'PY'
+          import json
+          j=json.load(open('c42a_static/C39_SOURCE_AUDIT.json'))
+          assert j['source_sha256_before_overlay']=='28ed80d0b006990b983f3971f58d302858cfdcc7ee72156f1fe0668eee3af661'
+          assert j['source_sha256_after_overlay']=='08f6bad70c6c479bc5d6946d2a6332263bca47f8a8d7f7dcc87d9c93df681027'
+          assert j['veto_gate_preserved'] and j['changed_scientific_parameters'] is False
+          PY
+      - name: Prepare verified C42A stderr-only overlays without any CLASS execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mcmc_o3/c42a_source_probe.py \
+            --background class_public/source/background.c \
+            --ndf15 class_public/tools/evolver_ndf15.c \
+            --out c42a_static/prepared_sources
+          python - <<'PY'
+          import json
+          j=json.load(open('c42a_static/prepared_sources/audit.json'))
+          assert j['status']=='SOURCE_INSTRUMENTATION_PREPARED_ONLY'
+          assert j['physical_class_computes']==0
+          assert j['byte_exact_reversibility'] is True
+          assert j['numerical_solution_or_convergence_certified'] is False
+          print('C42A SOURCE-ONLY PREFLIGHT; CLASS.compute ATTEMPTS = 0')
+          PY
+          (cd c42a_static && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-c42a-source-only-evidence
+          path: c42a_static
+          retention-days: 30
