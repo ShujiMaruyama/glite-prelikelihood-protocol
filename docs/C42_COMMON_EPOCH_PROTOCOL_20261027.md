@@ -83,3 +83,9 @@ python -m unittest discover -v
 ```
 
 The read-only program refuses wrong archive digests, corrupted ZIP, mismatched frozen-parameter SHA, tampered native stderr, altered original stability threshold or inflated convergence/viability claims. Original archive ZIPs remain byte-identical, unmodified evidence.
+
+## C42-A source localization addendum (2026-10-27; no new CLASS compute)
+
+Pinned upstream CLASS `include/precisions.h` sets `a_ini_over_a_today_default=1.e-14`. The initializer `background_initial_conditions` starts from that value but may modify it; the C41 recorded first-veto values (~3.95e-10) cannot be equated to `a_ini`. Therefore the earlier feasibility warning about being "very close" to an apparent initial epoch was **unsupported**. Actual initialization scale factors require future source-marked evidence.
+
+Pinned `tools/evolver_ndf15.c` calls `(*derivs)(tnew,ynew,...)` in the adaptive trial prior to the acceptance marker `stepstat[0] += 1`; only after acceptance does it dispatch output-grid callbacks, possibly via interpolation. The C39 native veto print within `background_functions` belongs to the derivative-stage failure chain; it is not an accepted-step measurement. A future C42-A source-only instrumentation preflight must register output-callback vs NDF-accepted-step vs initialization events separately. This addendum is **source review only**: no C42-A native execution, no same-a convergence, and no physical viability conclusion.
