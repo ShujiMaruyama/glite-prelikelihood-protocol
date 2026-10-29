@@ -1,0 +1,63 @@
+name: RIMS c43 phase-locked source and synthetic trace test (manual-only)
+on:
+  workflow_dispatch:
+    inputs:
+      run_mode:
+        description: 'Only static source and synthetic C harness checks; no real CLASS compute'
+        required: true
+        type: choice
+        default: static-only
+        options:
+          - static-only
+permissions:
+  contents: read
+concurrency:
+  group: rims-c43-static-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  c43-static-only:
+    if: github.ref_name == 'rims-c43-ndf15-accepted-commit-trace-20261029' && inputs.run_mode == 'static-only'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check unit-level source guard, C harness and adversarial parser
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'pytest>=8,<10'
+          mkdir -p c43_static
+          python -m pytest -q mcmc_o3/test_c43.py | tee c43_static/test_results.txt
+      - name: Source-lock exact CLASS NDF15 and prepare observer without executing CLASS
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/lesgourg/class_public.git c43_upstream
+          git -C c43_upstream fetch --depth 1 origin e85808324f51fc694d12e3ed7439552a3c3f9540
+          git -C c43_upstream checkout --detach FETCH_HEAD
+          test "$(git -C c43_upstream rev-parse HEAD)" = 'e85808324f51fc694d12e3ed7439552a3c3f9540'
+          python mcmc_o3/c43_ndf15_patcher.py --source c43_upstream/tools/evolver_ndf15.c \
+            --out c43_static/evolver_ndf15.instrumented.c \
+            --receipt c43_static/source_lock_receipt.json
+          python - <<'PY'
+          import json
+          p='c43_static/source_lock_receipt.json'
+          x=json.load(open(p))
+          assert x['original_source_blob_sha1']=='0d293723510171ae9a732c80da32adb9ee52701f'
+          assert x['native_CLASS_executed'] is False
+          assert x['accepted_physical_g_measured'] is False
+          PY
+          printf '%s\n' 'C43 static original-source instrumentation only; native CLASS.compute calls = 0' > c43_static/CLAIM_BOUNDARY.txt
+      - name: Always save diagnostic artifacts and SHA256
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p c43_static
+          (cd c43_static && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-c43-static-source-telemetry
+          path: c43_static
+          retention-days: 30
