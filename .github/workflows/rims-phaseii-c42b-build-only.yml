@@ -1,0 +1,91 @@
+name: RIMS c42b source-locked native build ONLY (manual; no CLASS.compute)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: rims-c42b-build-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  PYTHONUNBUFFERED: '1'
+jobs:
+  native-build-only:
+    if: github.ref_name == 'rims-c42b-compile-only-20261029'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify C42-B build-only safety tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p c42b_evidence
+          python -m unittest discover -s mcmc_o3 -p test_c42b_compile_gate.py -v 2>&1 | tee c42b_evidence/compile_gate_tests.log
+          python -m unittest discover -s mcmc_o3 -p test_c42a_source_probe.py -v 2>&1 | tee c42b_evidence/c42a_regression_tests.log
+      - name: Reconstruct byte-locked original RIMS CLASS source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > rims_o3_patch/V18_23_TO_V18_29.patch
+          echo '6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74  rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff' | sha256sum -c -
+          echo 'c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc  rims_o3_patch/V18_23_TO_V18_29.patch' | sha256sum -c -
+          git clone https://github.com/lesgourg/class_public.git class_public
+          git -C class_public checkout e85808324f51fc694d12e3ed7439552a3c3f9540
+          test "$(git -C class_public rev-parse HEAD)" = 'e85808324f51fc694d12e3ed7439552a3c3f9540'
+          (cd class_public && git apply ../rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff && git apply ../rims_o3_patch/V18_23_TO_V18_29.patch && git diff --check)
+      - name: Reconstitute C39 then byte-exact C42A diagnostic sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mcmc_o3/c39_instrument_stability_terms.py --source class_public/source/background.c --audit-out c42b_evidence/c39_overlay_audit.json
+          python mcmc_o3/c42b_compile_gate.py --stage prepare --source class_public --out c42b_evidence/compile_gate
+          (cd class_public && git diff --check)
+          python - <<'PY'
+          import json
+          a=json.load(open('c42b_evidence/compile_gate/audit.json'))
+          assert a['state']=='C42A_PINNED_INSTRUMENTED_SOURCE_STAGED'
+          assert a['source_sha256_after']['background.c']=='dbbaa6b24b2b87cc6c058b4313ba026722467f8f23e80e8fde328e60c1467b9d'
+          assert a['source_sha256_after']['evolver_ndf15.c']=='c48e0b807df2d0cc2a859e59fc06483cd866bab199b65afb3db66f3b56070f38'
+          assert not a['native_build_certified']
+          print('C42B exact C42A source hashes reproduced; no native compute')
+          PY
+      - name: Build pinned CLASS C extension with C42A stderr-only source hooks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'numpy==2.5.3' 'cython<4' scipy > c42b_evidence/dependencies.log 2>&1
+          timeout --signal=TERM --kill-after=30s 600s bash -c 'cd class_public && python setup.py build' 2>&1 | tee c42b_evidence/build.log
+          python -m pip install -e ./class_public > c42b_evidence/install.log 2>&1
+      - name: Verify native import and provenance WITHOUT compute
+        shell: bash
+        run: |
+          set -euo pipefail
+          python mcmc_o3/c42b_compile_gate.py --stage verify-built --source class_public --out c42b_evidence/compile_gate
+          python - <<'PY'
+          import json
+          j=json.load(open('c42b_evidence/compile_gate/audit.json'))
+          assert j['native_build_certified']
+          assert j['native_CLASS_computes']==0
+          assert not j['native_solver_result_certified']
+          assert not j['numerical_convergence_certified']
+          assert not j['physical_stability_certified']
+          print('C42B BUILD_ONLY PASS; no CLASS.compute or physics claims')
+          PY
+      - name: Preserve source and runtime receipts, even if build fails
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p c42b_evidence
+          echo '${{ github.sha }}' > c42b_evidence/github_commit.txt
+          (cd c42b_evidence && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-c42b-build-only-evidence
+          path: c42b_evidence
+          retention-days: 30
