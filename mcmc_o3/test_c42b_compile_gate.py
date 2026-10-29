@@ -46,7 +46,21 @@ class TestCompileOnlyGate(unittest.TestCase):
             (p/'source/background.c').write_bytes(b'wrong physics')
             (p/'tools/evolver_ndf15.c').write_bytes(b'wrong')
             with self.assertRaises(ValueError):b.stage(p,p/'out')
-    def test_native_before_import_not_certified(self):
-        self.assertFalse('PINNED_C42A_NATIVE_EXTENSION_COMPILED_AND_IMPORTED' == 'C42A_PINNED_INSTRUMENTED_SOURCE_STAGED')
+    def test_verify_rejects_corrupted_built_source_before_import(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=pathlib.Path(d);source=p/'class_public';(source/'source').mkdir(parents=True)
+            (source/'source/background.c').write_bytes(b'corrupted')
+            evidence=p/'evidence';evidence.mkdir()
+            b.save(evidence/'audit.json',{'state':'C42A_PINNED_INSTRUMENTED_SOURCE_STAGED',
+                                           'native_CLASS_computes':0})
+            with self.assertRaisesRegex(ValueError,'compiled source must match'):
+                b.verify(source,evidence)
+    def test_verify_rejects_prior_compute_claim(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=pathlib.Path(d);evidence=p/'evidence';evidence.mkdir()
+            b.save(evidence/'audit.json',{'state':'C42A_PINNED_INSTRUMENTED_SOURCE_STAGED',
+                                           'native_CLASS_computes':1})
+            with self.assertRaisesRegex(ValueError,'unexpected physical compute claim'):
+                b.verify(p,evidence)
 
 if __name__=='__main__':unittest.main()
