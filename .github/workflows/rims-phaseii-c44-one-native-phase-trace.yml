@@ -1,0 +1,140 @@
+name: RIMS C44 original frozen native phase trace (manual-only)
+on:
+  workflow_dispatch:
+    inputs:
+      run_mode:
+        description: 'Safe default is static; native-one authorizes one original frozen C39 case only'
+        required: true
+        type: choice
+        default: static-only
+        options:
+          - static-only
+          - native-one
+permissions:
+  contents: read
+concurrency:
+  group: rims-c44-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  PYTHONUNBUFFERED: '1'
+jobs:
+  static-preflight:
+    if: github.ref_name == 'rims-c44-native-phase-trace-one-20261030'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify C43 synthetic instrumentation plus C44 frozen original-input gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'pytest>=8,<10' 'numpy==2.5.3'
+          mkdir -p c44_static
+          python -m compileall -q mcmc_o3/c43_ndf15_patcher.py mcmc_o3/c43_phase_audit.py mcmc_o3/c44_native_phase_probe.py
+          python -m pytest -q mcmc_o3/test_c43.py mcmc_o3/test_c44_static.py | tee c44_static/pytest.txt
+          python mcmc_o3/c24/c23_freeze.py --output c44_static/C23_FROZEN_81.json
+          python - <<'PY'
+          import json,sys
+          sys.path.insert(0,'mcmc_o3')
+          from c41_precision_gate import check_registry
+          m=json.load(open('c44_static/C23_FROZEN_81.json'))
+          j=check_registry()
+          assert len(m['cases'])==81
+          assert m['freeze_hash']==j['lineage']['c23_81_freeze']
+          assert m['cases'][2]['input_sha256']==j['lineage']['frozen_case_sha256']
+          print('C44 STATIC ONLY: no native CLASS.compute, no MCMC')
+          PY
+      - name: Preserve static artifacts
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p c44_static
+          (cd c44_static && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-c44-static-preflight
+          path: c44_static
+          retention-days: 30
+  one-frozen-native:
+    if: github.ref_name == 'rims-c44-native-phase-trace-one-20261030' && inputs.run_mode == 'native-one'
+    needs: static-preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin single immutable CLASS and RIMS source inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p c44_results
+          python -m pip install --disable-pip-version-check 'numpy==2.5.3'
+          python mcmc_o3/c24/c23_freeze.py --output C23_FROZEN_81.json
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > rims_o3_patch/V18_23_TO_V18_29.patch
+          echo '6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74  rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff' | sha256sum -c -
+          echo 'c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc  rims_o3_patch/V18_23_TO_V18_29.patch' | sha256sum -c -
+          git clone -q https://github.com/lesgourg/class_public.git class_public
+          git -C class_public checkout -q e85808324f51fc694d12e3ed7439552a3c3f9540
+          (cd class_public && git apply ../rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff && git apply ../rims_o3_patch/V18_23_TO_V18_29.patch)
+          python mcmc_o3/c39_instrument_stability_terms.py --source class_public/source/background.c --audit-out c44_results/c39_source_overlay.json
+          python - <<'PY'
+          import json
+          x=json.load(open('c44_results/c39_source_overlay.json'))
+          assert x['source_sha256_before_overlay']=='28ed80d0b006990b983f3971f58d302858cfdcc7ee72156f1fe0668eee3af661'
+          assert x['source_sha256_after_overlay']=='08f6bad70c6c479bc5d6946d2a6332263bca47f8a8d7f7dcc87d9c93df681027'
+          PY
+          python mcmc_o3/c43_ndf15_patcher.py \
+            --source class_public/tools/evolver_ndf15.c \
+            --out c44_results/evolver_ndf15.instrumented.c \
+            --receipt c44_results/c43_source_lock.json
+          cp c44_results/evolver_ndf15.instrumented.c class_public/tools/evolver_ndf15.c
+          (cd class_public && git diff --check)
+      - name: Build compiled native CLASS after BOTH source-only overlays
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'cython<4' 'numpy==2.5.3' scipy
+          (cd class_public && python setup.py build)
+          python -m pip install --disable-pip-version-check -e ./class_public
+      - name: Execute exactly one original frozen compute and audit trial-versus-commit
+        shell: bash
+        env:
+          RIMS_C43_NDF_TRACE: '1'
+        run: |
+          set -uo pipefail
+          timeout --signal=TERM --kill-after=30s 240s \
+            python -u mcmc_o3/c44_native_phase_probe.py \
+              --manifest C23_FROZEN_81.json \
+              --class-source class_public \
+              --base-patch rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff \
+              --delta-patch rims_o3_patch/V18_23_TO_V18_29.patch \
+              --source-receipt c44_results/c43_source_lock.json \
+              --stderr c44_results/native_stderr.txt \
+              --out c44_results/probe \
+            > c44_results/native_stdout.txt 2> c44_results/native_stderr.txt
+          rc=$?
+          printf '%s\n' "$rc" > c44_results/returncode.txt
+          cat c44_results/native_stdout.txt
+          if test "$rc" -ne 0; then
+            echo '::error::C44 diagnostic failure preserved. No automatic retry or parameter retune.'
+            exit "$rc"
+          fi
+      - name: Preserve failed and successful diagnostic records
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p c44_results
+          cp C23_FROZEN_81.json c44_results/ 2>/dev/null || true
+          (cd c44_results && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-c44-original-native-one-phase-trace
+          path: c44_results
+          retention-days: 30
