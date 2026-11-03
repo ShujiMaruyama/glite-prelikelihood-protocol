@@ -44,8 +44,10 @@ def test_instrumented_source_is_additive_and_exact(monkeypatch):
     assert c43receipt['source_after_sha256']==receipt['c43_only_sha256']
 def test_reject_existing_partial_log(monkeypatch):
     setup_mock(monkeypatch)
+    tampered=BG.replace('dy[0]', '/* RIMS_C46_DERIV_EVAL_V1 */ dy[0]')
+    monkeypatch.setattr(inst,'PINNED_BG',inst.sha(tampered.encode()))
     with pytest.raises(ValueError,match='duplicate observer'):
-        inst.compose(BG.replace('dy[0]', '/* RIMS_C46_DERIV_EVAL_V1 */ dy[0]').encode(),test_c43.MOCK.encode())
+        inst.compose(tampered.encode(),test_c43.MOCK.encode())
 def test_signed_zero_does_not_match():
     assert audit.bits('0x0p+0')!=audit.bits('-0x0p+0')
 def test_reject_decimal_and_nonfinite_fields():
