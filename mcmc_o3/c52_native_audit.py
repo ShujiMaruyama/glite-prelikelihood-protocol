@@ -90,6 +90,11 @@ def audit(stderr,*,alpha=.01,phi_t=-26.51196042031118):
            'beta':alpha*(1-s),'kappa':k,'rho_idm':d['rho_idm'],'H':d['H'],
            'Vpp':d['Vpp']})
         prev=ix
+    # A fully successful derivative call has already passed the ORIGINAL veto.
+    # Nonnegative g among such records is therefore selection-censored evidence,
+    # not a stand-alone demonstration that the unconstrained model is stable.
+    if any(row['g'] < -2e-24 for row in obs):
+        raise ValueError('Accepted-success physical g contradicts original source veto')
     signs=[[p['seq'],q['seq']] for p,q in zip(obs,obs[1:])
            if q['seq']==p['seq']+1 and p['g']*q['g']<0]
     status=('ACCEPTED_G_NOT_OBSERVED' if not obs else
@@ -103,6 +108,8 @@ def audit(stderr,*,alpha=.01,phi_t=-26.51196042031118):
         'last_accepted_coordinate_a':parent['last_committed_a'],
         'C44_baseline_coarse_parity':len(commits)==618 and
            math.isclose(parent['veto_a'],3.945904558535526e-10,rel_tol=1e-8),
+        'nonnegative_g_is_censored_by_original_veto':True,
+        'accepted_nonnegative_g_is_not_independent_stability_evidence':True,
         'full_trajectory_noninterference_proven':False,
         'accepted_state_stability_proven':False,'normalized_background_proven':False,
         'numerical_convergence_proven':False,'observational_detection':False,
