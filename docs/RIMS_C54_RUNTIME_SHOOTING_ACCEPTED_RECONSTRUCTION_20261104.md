@@ -47,3 +47,10 @@ Its native-one mode must **not** be run until static validation is reviewed. No 
 No new native CLASS execution; no committed-state g directly measured; no full shadow observer parity or rigorous floating point enclosure; no converged viable normalized cosmology; no full coupled gauge-invariant stability; no production MCMC or real-data evidence; no model superiority. The original physical veto is unchanged and may select positive g artificially. Thus C54's true contribution is the discovery and numerical audit of the hidden runtime shooting coefficient plus a source-specific, fail-closed algebraic path toward accepted-state diagnostics.
 
 This report is browser-readable to bypass previous in-chat PDF and ZIP download failures.
+
+## Verified final immutable delivery digests
+
+- ZIP SHA-256: **88b05566d1da7534c177f0097daf5d0f32d0d97a2efabdc93ad1e618f1f30833** (8,163,507 bytes).
+- PDF SHA-256: **29a9cee3c87b895312e815a758596e258e69a653a532efd13816f4efced86bd0** (3 pages, A4, all pages rendered and checked).
+- Final ZIP re-extracted into a separate folder; 34/34 local tests, immutable C53 and C44 ZIP hashes, C44 stderr hash, ZIP CRC and all member SHA256 passed again.
+- C54 source instrumentation was compiled only in a standalone mock; a real CLASS C54 binary is not yet compiled, and original/native trajectory parity remains open.
