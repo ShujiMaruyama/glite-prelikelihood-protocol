@@ -1,0 +1,228 @@
+name: RIMS C53 Newton-to-commit gap and source-locked accepted-g probe (manual-only)
+on:
+  workflow_dispatch:
+    inputs:
+      run_mode:
+        description: 'Safe default is static; native-one authorizes one original frozen C39 case only'
+        required: true
+        type: choice
+        default: static-only
+        options:
+          - static-only
+          - native-one
+permissions:
+  contents: read
+concurrency:
+  group: rims-c53-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  PYTHONUNBUFFERED: '1'
+jobs:
+  static-preflight:
+    if: github.ref_name == 'rims-c53-newton-commit-gap-preflight-20261104'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify C43 synthetic instrumentation plus C44 frozen original-input gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'pytest>=8,<10' 'numpy==2.5.3'
+          mkdir -p c52_static
+          python -m compileall -q mcmc_o3/c43_ndf15_patcher.py mcmc_o3/c43_phase_audit.py mcmc_o3/c44_native_phase_probe.py mcmc_o3/c52_instrument.py mcmc_o3/c52_native_audit.py
+          python -m pytest -q mcmc_o3/test_c43.py mcmc_o3/test_c44_static.py mcmc_o3/test_c52_static.py mcmc_o3/test_c53_newton_gap.py | tee c52_static/pytest.txt
+          python mcmc_o3/c24/c23_freeze.py --output c52_static/C23_FROZEN_81.json
+          python - <<'PY'
+          import json,sys
+          sys.path.insert(0,'mcmc_o3')
+          from c41_precision_gate import check_registry
+          m=json.load(open('c52_static/C23_FROZEN_81.json'))
+          j=check_registry()
+          assert len(m['cases'])==81
+          assert m['freeze_hash']==j['lineage']['c23_81_freeze']
+          assert m['cases'][2]['input_sha256']==j['lineage']['frozen_case_sha256']
+          print('C44 STATIC ONLY: no native CLASS.compute, no MCMC')
+          PY
+      - name: C52 compile-only pinned CLASS source lock (no CLASS.compute)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p c52_results
+          python -m pip install --disable-pip-version-check 'numpy==2.5.3'
+          python mcmc_o3/c24/c23_freeze.py --output C23_FROZEN_81.json
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > rims_o3_patch/V18_23_TO_V18_29.patch
+          echo '6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74  rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff' | sha256sum -c -
+          echo 'c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc  rims_o3_patch/V18_23_TO_V18_29.patch' | sha256sum -c -
+          git clone -q https://github.com/lesgourg/class_public.git class_public
+          git -C class_public checkout -q e85808324f51fc694d12e3ed7439552a3c3f9540
+          (cd class_public && git apply ../rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff && git apply ../rims_o3_patch/V18_23_TO_V18_29.patch)
+          python mcmc_o3/c39_instrument_stability_terms.py --source class_public/source/background.c --audit-out c52_results/c39_source_overlay.json
+          python - <<'PY'
+          import json
+          x=json.load(open('c52_results/c39_source_overlay.json'))
+          assert x['source_sha256_before_overlay']=='28ed80d0b006990b983f3971f58d302858cfdcc7ee72156f1fe0668eee3af661'
+          assert x['source_sha256_after_overlay']=='08f6bad70c6c479bc5d6946d2a6332263bca47f8a8d7f7dcc87d9c93df681027'
+          PY
+          python mcmc_o3/c52_instrument.py --class-source class_public --out c52_results/source_staging --install
+          cp c52_results/source_staging/c43_source_lock.json c52_results/c43_source_lock.json
+          cp c52_results/source_staging/source_lock.json c52_results/c52_source_lock.json
+          (cd class_public && git diff --check)
+      - name: Compile C52 instrumented native CLASS but do not run solver
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'cython<4' 'numpy==2.5.3' scipy
+          (cd class_public && python setup.py build)
+          python -m pip install --disable-pip-version-check -e ./class_public
+      - name: Save static source/binary lock receipt without CLASS computation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp c52_results/c52_source_lock.json c52_static/c52_source_lock.json
+          cp c52_results/c43_source_lock.json c52_static/c43_source_lock.json
+          python - <<'PY'
+          import hashlib,json,sys
+          from pathlib import Path
+          sys.path.insert(0,'mcmc_o3/c24')
+          import classy
+          import c24_native_background as native
+          b=native.class_compiled_module_path(classy)
+          assert Path('class_public').resolve() in b.resolve().parents
+          x=json.loads(Path('c52_static/c52_source_lock.json').read_text())
+          assert x['insertion_only'] and x['original_veto_unchanged']
+          assert x['native_CLASS_executed'] is False
+          Path('c52_static/compile_attestation.json').write_text(json.dumps({
+            'native_extension_sha256':hashlib.sha256(b.read_bytes()).hexdigest(),
+            'compiled_original_veto_unchanged':True,
+            'Class_compute_invocations':0,
+            'physical_accepted_g_measured':False},indent=2)+'\n')
+          print('C52 PINNED CLASS BINARY BUILT; ZERO CLASS COMPUTES')
+          PY
+      - name: Preserve static artifacts
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p c52_static
+          (cd c52_static && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-c53-static-preflight
+          path: c52_static
+          retention-days: 30
+  one-frozen-native:
+    if: github.ref_name == 'rims-c53-newton-commit-gap-preflight-20261104' && inputs.run_mode == 'native-one'
+    needs: static-preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin single immutable CLASS and RIMS source inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p c52_results
+          python -m pip install --disable-pip-version-check 'numpy==2.5.3'
+          python mcmc_o3/c24/c23_freeze.py --output C23_FROZEN_81.json
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > rims_o3_patch/V18_23_TO_V18_29.patch
+          echo '6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74  rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff' | sha256sum -c -
+          echo 'c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc  rims_o3_patch/V18_23_TO_V18_29.patch' | sha256sum -c -
+          git clone -q https://github.com/lesgourg/class_public.git class_public
+          git -C class_public checkout -q e85808324f51fc694d12e3ed7439552a3c3f9540
+          (cd class_public && git apply ../rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff && git apply ../rims_o3_patch/V18_23_TO_V18_29.patch)
+          python mcmc_o3/c39_instrument_stability_terms.py --source class_public/source/background.c --audit-out c52_results/c39_source_overlay.json
+          python - <<'PY'
+          import json
+          x=json.load(open('c52_results/c39_source_overlay.json'))
+          assert x['source_sha256_before_overlay']=='28ed80d0b006990b983f3971f58d302858cfdcc7ee72156f1fe0668eee3af661'
+          assert x['source_sha256_after_overlay']=='08f6bad70c6c479bc5d6946d2a6332263bca47f8a8d7f7dcc87d9c93df681027'
+          PY
+          python mcmc_o3/c52_instrument.py --class-source class_public --out c52_results/source_staging --install
+          cp c52_results/source_staging/c43_source_lock.json c52_results/c43_source_lock.json
+          cp c52_results/source_staging/source_lock.json c52_results/c52_source_lock.json
+          (cd class_public && git diff --check)
+      - name: Build compiled native CLASS after BOTH source-only overlays
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'cython<4' 'numpy==2.5.3' scipy
+          (cd class_public && python setup.py build)
+          python -m pip install --disable-pip-version-check -e ./class_public
+      - name: Execute exactly one original frozen compute and audit trial-versus-commit
+        shell: bash
+        env:
+          RIMS_C43_NDF_TRACE: '1'
+          RIMS_C45_COMMIT_STATE_TRACE: '1'
+          RIMS_C46_PASSIVE_TRACE: '1'
+        run: |
+          set -uo pipefail
+          timeout --signal=TERM --kill-after=30s 240s \
+            python -u mcmc_o3/c44_native_phase_probe.py \
+              --manifest C23_FROZEN_81.json \
+              --class-source class_public \
+              --base-patch rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff \
+              --delta-patch rims_o3_patch/V18_23_TO_V18_29.patch \
+              --source-receipt c52_results/c43_source_lock.json \
+              --stderr c52_results/native_stderr.txt \
+              --out c52_results/probe \
+            > c52_results/native_stdout.txt 2> c52_results/native_stderr.txt
+          rc=$?
+          printf '%s\n' "$rc" > c52_results/returncode.txt
+          cat c52_results/native_stdout.txt
+          if test "$rc" -ne 0; then
+            echo '::error::C44 diagnostic failure preserved. No automatic retry or parameter retune.'
+            exit "$rc"
+          fi
+      - name: Independently audit exact accepted physical g with pinned source/binary receipts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' > c52_results/compiled_extension_path.txt
+          import sys
+          sys.path.insert(0,'mcmc_o3/c24')
+          import c24_native_background as n
+          import classy
+          print(n.class_compiled_module_path(classy))
+          PY
+          python mcmc_o3/c52_native_audit.py \
+            --stderr c52_results/native_stderr.txt \
+            --input c52_results/probe/original_input.json \
+            --source-lock c52_results/c52_source_lock.json \
+            --native-receipt c52_results/probe/receipt.json \
+            --class-source class_public \
+            --binary "$(cat c52_results/compiled_extension_path.txt)" \
+            --output c52_results/C52_ACCEPTED_G_AUDIT.json
+      - name: Preserve exact Newton-to-commit mismatch evidence even when the C52 physical audit fails closed
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p c52_results
+          if test -s c52_results/native_stderr.txt; then
+            python mcmc_o3/c53_newton_gap_audit.py \
+              --stderr c52_results/native_stderr.txt \
+              --output c52_results/C53_NEWTON_COMMIT_GAP.json
+          else
+            printf '%s\n' 'C53: no native stderr yet. No CLASS stability inference.' > c52_results/C53_NO_NATIVE_LOG.txt
+          fi
+      - name: Preserve failed and successful diagnostic records
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p c52_results
+          cp C23_FROZEN_81.json c52_results/ 2>/dev/null || true
+          (cd c52_results && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-c53-original-native-one-accepted-g
+          path: c52_results
+          retention-days: 30
