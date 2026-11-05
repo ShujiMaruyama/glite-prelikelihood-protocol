@@ -50,3 +50,11 @@ The authoritative integrated/transformative RIMS manuscript retains seven native
 C55 is a source/implementation supplement, **not** a replacement or thinning of the full RIMS master. No detection, physical viability, normalized solution, posterior, Bayes factor or LambdaCDM superiority is claimed.
 
 Browser-readable fallback for previously failing ChatGPT ZIP/PDF downloads.
+
+## Final immutable local C55 package (verified)
+
+- Filename: RIMS_C55_Source_Index_Repair_20261105.zip
+- SHA-256: **3b06fd1653f555229aad3542defc27a81864426bcd8f3c61a01f63330f28f7ea**
+- Bytes: **8,229,365**; contains the intact C54 parent archive, original C44 native telemetry, standalone C55 corrected source, unmodified C54 old source for adversarial old-versus-new tests, README, source/hash ledger and the runnable reproduction script.
+- Independently re-extracted from final ZIP: **31/31 tests PASS**, C54/C44 immutable ZIP SHA digests PASS, original C44 stderr digest PASS, ZIP CRC and member SHA-256 manifests PASS.
+- GitHub file IDs and code are separately versioned; passing local tests does not establish GitHub CI acceptance.
