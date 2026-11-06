@@ -7,6 +7,7 @@ on:
       - rims-c55-native-vector-index-repair-20261105
     paths:
       - .github/workflows/rims-c55-static-one-shot-source-build.yml
+      - mcmc_o3/c52_native_audit.py
 permissions:
   contents: read
 concurrency:
