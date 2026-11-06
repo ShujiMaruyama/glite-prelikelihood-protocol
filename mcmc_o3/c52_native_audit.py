@@ -32,7 +32,10 @@ def fields(line,marker,keys,kind):
     return out
 def double(tok):
     if not HEX.fullmatch(tok):raise ValueError('Nonhex/ambiguous/nonfinite binary64 data')
-    f=float.fromhex(tok)
+    try:
+        f=float.fromhex(tok)
+    except (ValueError,OverflowError) as err:
+        raise ValueError('Nonfinite/overflow binary64 data') from err
     if not math.isfinite(f):raise ValueError('Nonfinite binary64 data')
     return f
 def bits(tok):return struct.pack('>d',double(tok))
