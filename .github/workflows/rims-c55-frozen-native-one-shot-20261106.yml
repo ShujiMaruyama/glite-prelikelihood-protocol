@@ -1,0 +1,173 @@
+# One-shot C55 physical CLASS diagnostic explicitly initiated from this conversation.
+# No rerun under another commit; exact message+run_attempt=1 guards; no auto-sweep.
+name: RIMS C55 frozen original native one-case (exactly one compute; original veto)
+on:
+  push:
+    branches:
+      - rims-c55-native-vector-index-repair-20261105
+    paths:
+      - .github/workflows/rims-c55-frozen-native-one-shot-20261106.yml
+permissions:
+  contents: read
+concurrency:
+  group: rims-c55-onecase-20261106
+  cancel-in-progress: false
+env:
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  PYTHONUNBUFFERED: '1'
+jobs:
+  one-frozen-native:
+    if: github.ref_name == 'rims-c55-native-vector-index-repair-20261105' && github.run_attempt == 1 && github.event.head_commit.message == 'RIMS C55 AUTHORIZE one frozen native case once 20261106'
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin single immutable CLASS and RIMS source inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p c52_results
+          python -m pip install --disable-pip-version-check 'numpy==2.5.3'
+          python mcmc_o3/c24/c23_freeze.py --output C23_FROZEN_81.json
+          cat rims_o3_patch/base_parts/part00 rims_o3_patch/base_parts/part01 rims_o3_patch/base_parts/part02_03 rims_o3_patch/base_parts/part04_05 rims_o3_patch/base_parts/part06 > rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff
+          cat rims_o3_patch/delta_parts/part00_01 rims_o3_patch/delta_parts/part02_03 rims_o3_patch/delta_parts/part04 > rims_o3_patch/V18_23_TO_V18_29.patch
+          echo '6bb31d11bf17c300666a2c2f2b79cac42aeef0a99e9ea53cf3db87403592ad74  rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff' | sha256sum -c -
+          echo 'c322fb05b7414be9f88cf90ff0580694e7677c8da91d78a5480ea9cf10f2b8dc  rims_o3_patch/V18_23_TO_V18_29.patch' | sha256sum -c -
+          git clone -q https://github.com/lesgourg/class_public.git class_public
+          git -C class_public checkout -q e85808324f51fc694d12e3ed7439552a3c3f9540
+          (cd class_public && git apply ../rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff && git apply ../rims_o3_patch/V18_23_TO_V18_29.patch)
+          python mcmc_o3/c39_instrument_stability_terms.py --source class_public/source/background.c --audit-out c52_results/c39_source_overlay.json
+          python - <<'PY'
+          import json
+          x=json.load(open('c52_results/c39_source_overlay.json'))
+          assert x['source_sha256_before_overlay']=='28ed80d0b006990b983f3971f58d302858cfdcc7ee72156f1fe0668eee3af661'
+          assert x['source_sha256_after_overlay']=='08f6bad70c6c479bc5d6946d2a6332263bca47f8a8d7f7dcc87d9c93df681027'
+          PY
+          python mcmc_o3/c55_runtime_aux_overlay.py --class-source class_public --out c52_results/source_staging --install
+          cp c52_results/source_staging/c43_source_lock.json c52_results/c43_source_lock.json
+          cp c52_results/source_staging/source_lock.json c52_results/c52_source_lock.json
+          (cd class_public && git diff --check)
+      - name: Build compiled native CLASS after BOTH source-only overlays
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'cython<4' 'numpy==2.5.3' scipy
+          (cd class_public && python setup.py build)
+          python -m pip install --disable-pip-version-check -e ./class_public
+      - name: Require verified exact C55 compiled physics source; refuse source drift before compute
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,subprocess,sys
+          from pathlib import Path
+          root=Path("class_public").resolve()
+          lock=json.loads(Path("c52_results/c52_source_lock.json").read_text())
+          head=subprocess.check_output(["git","-C",str(root),"rev-parse","HEAD"],text=True).strip()
+          assert head=="e85808324f51fc694d12e3ed7439552a3c3f9540"
+          assert lock["original_veto_unchanged"] is True and lock["additional_physical_evaluations"]==0
+          expected={"source/background.c":"29dabf28d9d72e3d6cd7415a845cc4b44c985fd20ff3a025a9a98765d8afaad2",
+                    "tools/evolver_ndf15.c":"e952e95612c19b163046b41aac8b0a6c2f6025390bc20e0b4b8a97570f270a36"}
+          for p,h in expected.items():
+            got=hashlib.sha256((root/p).read_bytes()).hexdigest()
+            assert got==h and got==lock["background_output_sha256" if p.startswith("source/") else "ndf_output_sha256"],p
+          sys.path.insert(0,"mcmc_o3/c24")
+          import classy,c24_native_background as n
+          binary=n.class_compiled_module_path(classy)
+          assert root in binary.parents
+          receipt={"schema":"RIMS_C55_ONE_CASE_PRECOMPUTE_LOCK_V1","upstream":head,
+                   "source_sha256":expected,
+                   "binary_sha256":hashlib.sha256(binary.read_bytes()).hexdigest(),
+                   "physical_veto_unchanged":True,
+                   "compute_called_before_this_check":False,
+                   "run_once_guard":"github.run_attempt==1 AND exact head_commit message"}
+          Path("c52_results/C55_PRECOMPUTE_LOCK.json").write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n")
+          print("C55 SOURCE/BINARY LOCK PASS; one frozen case may start")
+          PY
+      - name: Execute exactly one original frozen compute and audit trial-versus-commit
+        shell: bash
+        env:
+          RIMS_C43_NDF_TRACE: '1'
+          RIMS_C45_COMMIT_STATE_TRACE: '1'
+          RIMS_C46_PASSIVE_TRACE: '1'
+          RIMS_C54_AUX_TRACE: '1'
+        run: |
+          set -uo pipefail
+          timeout --signal=TERM --kill-after=30s 240s \
+            python -u mcmc_o3/c44_native_phase_probe.py \
+              --manifest C23_FROZEN_81.json \
+              --class-source class_public \
+              --base-patch rims_o3_patch/V18_23_LOCAL_RIMS_PATCH.diff \
+              --delta-patch rims_o3_patch/V18_23_TO_V18_29.patch \
+              --source-receipt c52_results/c43_source_lock.json \
+              --stderr c52_results/native_stderr.txt \
+              --out c52_results/probe \
+            > c52_results/native_stdout.txt 2> c52_results/native_stderr.txt
+          rc=$?
+          printf '%s\n' "$rc" > c52_results/returncode.txt
+          cat c52_results/native_stdout.txt
+          if test "$rc" -ne 0; then
+            echo '::error::C44 diagnostic failure preserved. No automatic retry or parameter retune.'
+            exit "$rc"
+          fi
+      - name: Reconstruct C55 corrected-index accepted state physical g (conditional; not native certification)
+        shell: bash
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p c52_results
+          if test -s c52_results/native_stderr.txt; then
+            python mcmc_o3/c55_accepted_g_reconstruct.py \
+              --stderr c52_results/native_stderr.txt \
+              --output c52_results/C55_ACCEPTED_G_RECONSTRUCTION.json
+          else
+            echo 'C55 no native data: accepted physical g NOT measured' > c52_results/C55_NO_NATIVE_LOG.txt
+          fi
+      - name: Independently audit exact accepted physical g with pinned source/binary receipts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' > c52_results/compiled_extension_path.txt
+          import sys
+          sys.path.insert(0,'mcmc_o3/c24')
+          import c24_native_background as n
+          import classy
+          print(n.class_compiled_module_path(classy))
+          PY
+          python mcmc_o3/c52_native_audit.py \
+            --stderr c52_results/native_stderr.txt \
+            --input c52_results/probe/original_input.json \
+            --source-lock c52_results/c52_source_lock.json \
+            --native-receipt c52_results/probe/receipt.json \
+            --class-source class_public \
+            --binary "$(cat c52_results/compiled_extension_path.txt)" \
+            --output c52_results/C52_ACCEPTED_G_AUDIT.json
+      - name: Preserve exact Newton-to-commit mismatch evidence even when the C52 physical audit fails closed
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p c52_results
+          if test -s c52_results/native_stderr.txt; then
+            python mcmc_o3/c53_newton_gap_audit.py \
+              --stderr c52_results/native_stderr.txt \
+              --output c52_results/C53_NEWTON_COMMIT_GAP.json
+          else
+            printf '%s\n' 'C53: no native stderr yet. No CLASS stability inference.' > c52_results/C53_NO_NATIVE_LOG.txt
+          fi
+      - name: Preserve failed and successful diagnostic records
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p c52_results
+          cp C23_FROZEN_81.json c52_results/ 2>/dev/null || true
+          (cd c52_results && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rims-c55-original-native-one-accepted-g
+          path: c52_results
+          retention-days: 30
